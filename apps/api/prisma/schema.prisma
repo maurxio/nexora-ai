@@ -29,6 +29,7 @@ model Organization {
   name         String
   slug         String        @unique
   memberships  Membership[]
+  agents       Agent[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 }
@@ -54,4 +55,31 @@ model RefreshToken {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   @@index([userId])
+}
+
+model Agent {
+  id                 String      @id @default(uuid()) @db.Uuid
+  organizationId     String      @db.Uuid
+  name               String
+  description        String?
+  systemInstructions String
+  model              String      @default("claude-sonnet-4-5")
+  maxStepsPerRun     Int         @default(10)
+  monthlyTokenBudget Int?
+  organization       Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  tools              AgentTool[]
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@index([organizationId])
+  @@unique([organizationId, name])
+}
+
+model AgentTool {
+  id       String @id @default(uuid()) @db.Uuid
+  agentId  String @db.Uuid
+  toolName String
+  agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, toolName])
 }

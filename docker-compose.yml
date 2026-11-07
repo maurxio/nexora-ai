@@ -7,6 +7,13 @@ services:
       POSTGRES_DB: nexora
     ports: ["5433:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
+  adminer:
+    image: adminer:4
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+
   redis:
     image: redis:7
     ports: ["6380:6379"]
