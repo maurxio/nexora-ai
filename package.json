@@ -1,7 +1,7 @@
 {
   "name": "nexora-ai",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "workspaces": ["apps/*"],
   "scripts": {
     "dev:api": "npm run dev -w apps/api",
@@ -9,5 +9,8 @@
     "db:down": "docker compose down",
     "db:generate": "npm exec prisma generate -- --schema apps/api/prisma/schema.prisma",
     "db:migrate": "npm exec prisma migrate dev -- --schema apps/api/prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "prisma": "^6"
   }
 }

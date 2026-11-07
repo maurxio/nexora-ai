@@ -4,19 +4,36 @@ import prisma from '../../infrastructure/prisma.js';
 import { asyncHandler, httpError } from '../../utils.js';
 import { requireRole } from '../../middleware/rbac.js';
 import { tenant } from '../../middleware/tenant.js';
+import crypto from 'node:crypto';
 
 const router = Router({ mergeParams: true });
 
-const organizationSchema = z.object({ name: z.string().trim().min(1), slug: z.string().trim().min(1).regex(/^[a-z0-9-]+$/) });
+const organizationSchema = z.object({
+  name: z.string().trim().min(2).max(100),
+}).strict();
 const memberSchema = z.object({ email: z.string().email(), role: z.enum(['ADMIN', 'OPERATOR', 'AUDITOR']).default('OPERATOR') });
 const roleSchema = z.object({ role: z.enum(['ADMIN', 'OPERATOR', 'AUDITOR']) });
+
+function slugify(name) {
+  const slug = name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug || 'org';
+}
 
 router.post('/', asyncHandler(async (req, res) => {
   const input = organizationSchema.parse(req.body);
   const organization = await prisma.organization.create({
-    data: { ...input, memberships: { create: { userId: req.user.id, role: 'ADMIN' } } },
+    data: {
+      name: input.name,
+      slug: `${slugify(input.name)}-${crypto.randomBytes(2).toString('hex')}`,
+      memberships: { create: { userId: req.user.id, role: 'ADMIN' } },
+    },
   });
-  res.status(201).json(organization);
+  res.status(201).json({ ...organization, role: 'ADMIN' });
 }));
 
 router.get('/', asyncHandler(async (req, res) => {
