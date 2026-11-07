@@ -30,8 +30,9 @@ model Organization {
   slug         String        @unique
   memberships  Membership[]
   agents       Agent[]
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  workflows    Workflow[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
 model Membership {
@@ -82,4 +83,31 @@ model AgentTool {
   agent    Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   @@unique([agentId, toolName])
+}
+
+model Workflow {
+  id             String           @id @default(uuid()) @db.Uuid
+  organizationId String           @db.Uuid
+  name           String
+  description    String?
+  draft          Json             @default("{\"nodes\":[],\"edges\":[]}")
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  versions       WorkflowVersion[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([organizationId])
+  @@unique([organizationId, name])
+}
+
+model WorkflowVersion {
+  id          String   @id @default(uuid()) @db.Uuid
+  workflowId  String   @db.Uuid
+  version     Int
+  definition  Json
+  createdById String?  @db.Uuid
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@unique([workflowId, version])
 }
