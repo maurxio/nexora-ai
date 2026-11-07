@@ -5,6 +5,7 @@
   "workspaces": ["apps/*"],
   "scripts": {
     "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
     "db:up": "docker compose up -d postgres redis",
     "db:down": "docker compose down",
     "db:generate": "npm exec prisma generate -- --schema apps/api/prisma/schema.prisma",
