@@ -3,8 +3,9 @@ import { z } from 'zod';
 const nodeIdSchema = z.string().min(1).max(50).regex(/^[A-Za-z0-9_-]+$/);
 const nodeSchema = z.object({
   id: nodeIdSchema,
-  type: z.enum(['trigger', 'condition', 'http', 'transform', 'approval', 'notification']),
+  type: z.enum(['trigger', 'condition', 'http', 'transform', 'approval', 'notification', 'agent']),
   config: z.record(z.any()),
+  position: z.object({ x: z.number(), y: z.number() }).optional(),
 }).strict();
 const edgeSchema = z.object({
   from: nodeIdSchema,

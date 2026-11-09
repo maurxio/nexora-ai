@@ -13,6 +13,21 @@ enum Role {
   AUDITOR
 }
 
+enum ExecutionStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum StepStatus {
+  RUNNING
+  SUCCEEDED
+  FAILED
+  SKIPPED
+}
+
 model User {
   id           String         @id @default(uuid()) @db.Uuid
   email        String         @unique
@@ -31,6 +46,7 @@ model Organization {
   memberships  Membership[]
   agents       Agent[]
   workflows    Workflow[]
+  executions   WorkflowExecution[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 }
@@ -93,6 +109,7 @@ model Workflow {
   draft          Json             @default("{\"nodes\":[],\"edges\":[]}")
   organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   versions       WorkflowVersion[]
+  executions   WorkflowExecution[]
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
@@ -107,7 +124,49 @@ model WorkflowVersion {
   definition  Json
   createdById String?  @db.Uuid
   workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  executions  WorkflowExecution[]
   createdAt   DateTime @default(now())
 
   @@unique([workflowId, version])
+}
+
+model WorkflowExecution {
+  id              String          @id @default(uuid()) @db.Uuid
+  organizationId  String          @db.Uuid
+  workflowId      String          @db.Uuid
+  workflowVersionId String        @db.Uuid
+  status          ExecutionStatus @default(QUEUED)
+  input           Json
+  error           String?
+  idempotencyKey  String?
+  triggeredById   String?         @db.Uuid
+  lockedUntil     DateTime?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  organization    Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  workflow        Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  workflowVersion WorkflowVersion @relation(fields: [workflowVersionId], references: [id], onDelete: Cascade)
+  steps           ExecutionStep[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, createdAt])
+  @@index([status])
+}
+
+model ExecutionStep {
+  id          String      @id @default(uuid()) @db.Uuid
+  executionId String      @db.Uuid
+  nodeId      String
+  nodeType    String
+  status      StepStatus
+  attempt     Int
+  output      Json?
+  error       String?
+  startedAt   DateTime    @default(now())
+  finishedAt  DateTime?
+  execution   WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  @@index([executionId])
 }

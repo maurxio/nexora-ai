@@ -1,0 +1,12 @@
+{
+  "name": "@nexora/workflow-engine",
+  "version": "0.2.0",
+  "type": "module",
+  "exports": "./src/index.js",
+  "scripts": {
+    "test": "node --test test"
+  },
+  "dependencies": {
+    "@nexora/shared": "0.2.0"
+  }
+}

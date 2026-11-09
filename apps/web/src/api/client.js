@@ -112,4 +112,10 @@ export const workflowsApi = {
   publish: (orgId, id) => request('POST', `/orgs/${orgId}/workflows/${id}/publish`),
   versions: (orgId, id) => request('GET', `/orgs/${orgId}/workflows/${id}/versions`),
   version: (orgId, id, version) => request('GET', `/orgs/${orgId}/workflows/${id}/versions/${version}`),
+  execute: (orgId, id, body) => request('POST', `/orgs/${orgId}/workflows/${id}/execute`, body),
+};
+
+export const executionsApi = {
+  get: (orgId, id) => request('GET', `/orgs/${orgId}/executions/${id}`),
+  steps: (orgId, id) => request('GET', `/orgs/${orgId}/executions/${id}/steps`),
 };

@@ -1,0 +1,11 @@
+{
+  "name": "@nexora/workflow-worker",
+  "version": "0.2.0",
+  "type": "module",
+  "dependencies": {
+    "@nexora/shared": "0.2.0",
+    "@nexora/workflow-engine": "0.2.0",
+    "@prisma/client": "^6.19.0",
+    "bullmq": "5.63.0"
+  }
+}

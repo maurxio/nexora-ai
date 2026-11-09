@@ -2,16 +2,26 @@
   "name": "nexora-ai",
   "private": true,
   "version": "0.2.0",
-  "workspaces": ["apps/*"],
+  "workspaces": [
+    "apps/*",
+    "workers/*",
+    "packages/*"
+  ],
   "scripts": {
+    "dev": "npm run db:up && npm run db:generate && wait-on tcp:5433 tcp:6380 && npm run db:migrate && concurrently --kill-others-on-fail \"npm run dev:api\" \"npm run dev:web\"",
     "dev:api": "npm run dev -w apps/api",
+    "dev:worker": "node --watch --env-file=.env workers/workflow-worker/src/index.js",
     "dev:web": "npm run dev -w apps/web",
     "db:up": "docker compose up -d postgres redis",
     "db:down": "docker compose down",
     "db:generate": "npm exec prisma generate -- --schema apps/api/prisma/schema.prisma",
-    "db:migrate": "npm exec prisma migrate dev -- --schema apps/api/prisma/schema.prisma"
+    "db:migrate": "npm exec prisma migrate dev -- --schema apps/api/prisma/schema.prisma",
+    "test": "npm test --workspaces --if-present"
   },
   "devDependencies": {
-    "prisma": "^6"
+    "concurrently": "^10.0.7",
+    "prisma": "^6",
+    "wait-on": "^9.5.1",
+    "bullmq": "5.63.0"
   }
 }

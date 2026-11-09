@@ -4,6 +4,8 @@ import prisma from '../../infrastructure/prisma.js';
 import { asyncHandler, httpError } from '../../utils.js';
 import { requireRole } from '../../middleware/rbac.js';
 import { shapeSchema, validateGraph } from './definition.js';
+import { enqueueExecution } from '../../infrastructure/queue.js';
+import { MAX_INPUT_BYTES } from '@nexora/shared';
 
 const router = Router({ mergeParams: true });
 const idSchema = z.string().uuid();
@@ -142,6 +144,43 @@ router.get('/:id/versions/:version', validateWorkflowId, asyncHandler(async (req
   res.json(result);
 }));
 
-router.post('/:id/execute', validateWorkflowId, (_req, res) => res.status(501).json({ error: 'Pendiente' }));
+const executeSchema = z.object({
+  input: z.record(z.any()).default({}),
+  version: z.number().int().positive().optional(),
+}).strict();
+
+router.post('/:id/execute', validateWorkflowId, requireRole('ADMIN', 'OPERATOR'), asyncHandler(async (req, res) => {
+  const input = executeSchema.parse(req.body);
+  if (Buffer.byteLength(JSON.stringify(input.input), 'utf8') > MAX_INPUT_BYTES) throw httpError(413, 'La entrada excede el tamaño máximo');
+  const workflow = await findWorkflow(req);
+  const version = input.version ?? latestVersion(workflow);
+  if (version === null) throw httpError(409, 'El workflow no tiene versiones publicadas');
+  const workflowVersion = await prisma.workflowVersion.findFirst({ where: { workflowId: workflow.id, version } });
+  if (!workflowVersion) throw httpError(404, 'Versión no encontrada');
+  const idempotencyKey = req.get('Idempotency-Key');
+  if (idempotencyKey && (idempotencyKey.length < 1 || idempotencyKey.length > 100)) throw httpError(400, 'Idempotency-Key inválida');
+  if (idempotencyKey) {
+    const existing = await prisma.workflowExecution.findUnique({ where: { organizationId_idempotencyKey: { organizationId: req.orgId, idempotencyKey } } });
+    if (existing) return res.json({ executionId: existing.id, status: existing.status });
+  }
+  let execution;
+  try {
+    execution = await prisma.workflowExecution.create({
+      data: { organizationId: req.orgId, workflowId: workflow.id, workflowVersionId: workflowVersion.id, input: input.input, idempotencyKey, triggeredById: req.user.id },
+    });
+    await enqueueExecution(execution.id);
+  } catch (error) {
+    if (error.code === 'P2002' && idempotencyKey) {
+      const existing = await prisma.workflowExecution.findUnique({ where: { organizationId_idempotencyKey: { organizationId: req.orgId, idempotencyKey } } });
+      if (existing) return res.json({ executionId: existing.id, status: existing.status });
+    }
+    if (execution) {
+      await prisma.workflowExecution.update({ where: { id: execution.id }, data: { status: 'FAILED', error: 'Cola no disponible', finishedAt: new Date() } });
+      throw httpError(503, 'Cola no disponible');
+    }
+    throw error;
+  }
+  res.status(202).json({ executionId: execution.id, status: execution.status });
+}));
 
 export default router;
