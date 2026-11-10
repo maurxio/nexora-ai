@@ -1,12 +1,24 @@
 import { Router } from 'express';
+import * as controller from './controllers.js';
+import { assertEncryptionKey } from './crypto.js';
 
 const router = Router({ mergeParams: true });
-
-router.get('/', (_req, res) => res.status(501).json({ error: 'Pendiente' }));
-router.post('/', (_req, res) => res.status(501).json({ error: 'Pendiente' }));
-router.get('/:id', (_req, res) => res.status(501).json({ error: 'Pendiente' }));
-router.patch('/:id', (_req, res) => res.status(501).json({ error: 'Pendiente' }));
-router.delete('/:id', (_req, res) => res.status(501).json({ error: 'Pendiente' }));
-router.post('/:id/test', (_req, res) => res.status(501).json({ error: 'Pendiente' }));
-
+assertEncryptionKey();
+router.post('/connectors', controller.createConnector);
+router.get('/connectors', controller.listConnectors);
+router.get('/connectors/:id', controller.getConnector);
+router.patch('/connectors/:id', controller.updateConnector);
+router.delete('/connectors/:id', controller.deleteConnector);
+router.post('/connectors/:id/test', controller.testConnector);
+router.post('/webhook-endpoints', controller.createEndpoint);
+router.get('/webhook-endpoints', controller.listEndpoints);
+router.patch('/webhook-endpoints/:id', controller.updateEndpoint);
+router.delete('/webhook-endpoints/:id', controller.deleteEndpoint);
+router.post('/webhook-endpoints/:id/rotate-secret', controller.rotateEndpointSecret);
+router.get('/webhook-endpoints/:id/events', controller.listEvents);
+router.post('/webhook-subscriptions', controller.createSubscription);
+router.get('/webhook-subscriptions', controller.listSubscriptions);
+router.patch('/webhook-subscriptions/:id', controller.updateSubscription);
+router.delete('/webhook-subscriptions/:id', controller.deleteSubscription);
+router.get('/integration-logs', controller.listLogs);
 export default router;

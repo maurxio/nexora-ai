@@ -1,0 +1,14 @@
+{
+  "name": "@nexora/notification-worker",
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file=../../.env src/index.js"
+  },
+  "dependencies": {
+    "@nexora/api": "0.2.0",
+    "@prisma/client": "^6.19.0",
+    "bullmq": "5.63.0",
+    "nodemailer": "^7.0.11"
+  }
+}

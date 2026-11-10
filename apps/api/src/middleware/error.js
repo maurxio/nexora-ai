@@ -4,7 +4,7 @@ export const notFound = (_req, res) => res.status(404).json({ error: 'Ruta no en
 
 export const errorHandler = (err, _req, res, _next) => {
   if (err instanceof ZodError) {
-    return res.status(400).json({ error: 'Datos inválidos', details: err.flatten() });
+    return res.status(422).json({ error: 'Datos inválidos', details: err.flatten() });
   }
   if (err.code === 'P2002') return res.status(409).json({ error: 'El recurso ya existe' });
   const status = err.status || 500;

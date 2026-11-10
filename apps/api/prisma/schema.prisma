@@ -28,6 +28,56 @@ enum StepStatus {
   SKIPPED
 }
 
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+enum DecisionMode {
+  ANY
+  ALL
+}
+
+enum AssigneeDecision {
+  APPROVED
+  REJECTED
+}
+
+enum NotificationType {
+  APPROVAL_REQUESTED
+  APPROVAL_APPROVED
+  APPROVAL_REJECTED
+  APPROVAL_EXPIRED
+  GENERIC
+}
+
+enum ConnectorType {
+  HTTP
+  WEBHOOK
+  CUSTOM
+}
+
+enum AuthType {
+  NONE
+  API_KEY
+  BEARER
+  BASIC
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+}
+
+enum IntegrationDirection {
+  OUTBOUND
+  INBOUND
+}
+
 model User {
   id           String         @id @default(uuid()) @db.Uuid
   email        String         @unique
@@ -35,6 +85,10 @@ model User {
   passwordHash String
   memberships  Membership[]
   refreshTokens RefreshToken[]
+  requestedApprovals Approval[] @relation("ApprovalRequester")
+  approvalAssignees ApprovalAssignee[]
+  notifications Notification[]
+  connectors Connector[] @relation("ConnectorCreator")
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 }
@@ -47,8 +101,98 @@ model Organization {
   agents       Agent[]
   workflows    Workflow[]
   executions   WorkflowExecution[]
+  approvals    Approval[]
+  notifications Notification[]
+  connectors Connector[]
+  webhookEndpoints WebhookEndpoint[]
+  webhookEvents WebhookEvent[]
+  webhookSubscriptions WebhookSubscription[]
+  integrationLogs IntegrationLog[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+}
+
+model Connector {
+  id                  String      @id @default(uuid()) @db.Uuid
+  companyId           String      @db.Uuid
+  name                String
+  type                ConnectorType
+  baseUrl             String?
+  authType            AuthType    @default(NONE)
+  encryptedCredentials String?
+  defaultHeaders      Json        @default("{}")
+  isActive            Boolean     @default(true)
+  createdById         String      @db.Uuid
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  company             Organization @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdBy           User        @relation("ConnectorCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  integrationLogs     IntegrationLog[]
+  @@unique([companyId, name])
+  @@index([companyId, createdAt])
+  @@index([companyId, id])
+}
+
+model WebhookEndpoint {
+  id             String      @id @default(uuid()) @db.Uuid
+  companyId      String      @db.Uuid
+  name           String
+  slug           String      @unique
+  secretHash     String
+  encryptedSecret String?
+  isActive       Boolean     @default(true)
+  lastReceivedAt DateTime?
+  createdAt      DateTime    @default(now())
+  company        Organization @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  events         WebhookEvent[]
+  @@index([companyId, createdAt])
+}
+
+model WebhookEvent {
+  id             String             @id @default(uuid()) @db.Uuid
+  companyId      String             @db.Uuid
+  endpointId     String             @db.Uuid
+  headers        Json
+  body           Json
+  signatureValid Boolean
+  status         WebhookEventStatus @default(RECEIVED)
+  createdAt      DateTime           @default(now())
+  company        Organization       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  endpoint       WebhookEndpoint    @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+  @@index([companyId, createdAt])
+  @@index([endpointId, status, createdAt])
+}
+
+model WebhookSubscription {
+  id              String       @id @default(uuid()) @db.Uuid
+  companyId       String       @db.Uuid
+  url             String
+  eventTypes      String[]
+  encryptedSecret String
+  isActive        Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  company        Organization @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  @@index([companyId, createdAt])
+}
+
+model IntegrationLog {
+  id              String              @id @default(uuid()) @db.Uuid
+  companyId       String              @db.Uuid
+  connectorId     String?             @db.Uuid
+  direction       IntegrationDirection
+  method          String
+  url             String
+  requestHeaders  Json
+  statusCode      Int?
+  durationMs      Int
+  success         Boolean
+  errorMessage    String?
+  attempt         Int
+  createdAt       DateTime            @default(now())
+  company        Organization         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  connector       Connector?          @relation(fields: [connectorId], references: [id], onDelete: SetNull)
+  @@index([companyId, createdAt])
+  @@index([companyId, connectorId])
 }
 
 model Membership {
@@ -149,10 +293,65 @@ model WorkflowExecution {
   workflow        Workflow        @relation(fields: [workflowId], references: [id], onDelete: Cascade)
   workflowVersion WorkflowVersion @relation(fields: [workflowVersionId], references: [id], onDelete: Cascade)
   steps           ExecutionStep[]
+  approvals       Approval[]
 
   @@unique([organizationId, idempotencyKey])
   @@index([organizationId, createdAt])
   @@index([status])
+}
+
+model Approval {
+  id             String         @id @default(uuid()) @db.Uuid
+  companyId      String         @db.Uuid
+  workflowRunId  String?        @db.Uuid
+  title          String
+  description    String?
+  payload        Json
+  status         ApprovalStatus @default(PENDING)
+  decisionMode   DecisionMode   @default(ANY)
+  requestedById  String         @db.Uuid
+  expiresAt      DateTime?
+  decidedAt      DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  company        Organization   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workflowRun    WorkflowExecution? @relation(fields: [workflowRunId], references: [id], onDelete: SetNull)
+  requestedBy    User           @relation("ApprovalRequester", fields: [requestedById], references: [id], onDelete: Cascade)
+  assignees      ApprovalAssignee[]
+  notifications  Notification[]
+
+  @@index([companyId, status])
+}
+
+model ApprovalAssignee {
+  id         String            @id @default(uuid()) @db.Uuid
+  approvalId String            @db.Uuid
+  userId     String            @db.Uuid
+  decision   AssigneeDecision?
+  comment    String?
+  decidedAt  DateTime?
+  approval   Approval          @relation(fields: [approvalId], references: [id], onDelete: Cascade)
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([approvalId, userId])
+}
+
+model Notification {
+  id         String           @id @default(uuid()) @db.Uuid
+  companyId  String           @db.Uuid
+  userId     String           @db.Uuid
+  approvalId String?          @db.Uuid
+  type       NotificationType
+  title      String
+  body       String
+  data       Json
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+  company    Organization     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  approval   Approval?        @relation(fields: [approvalId], references: [id], onDelete: SetNull)
+
+  @@index([userId, readAt])
 }
 
 model ExecutionStep {

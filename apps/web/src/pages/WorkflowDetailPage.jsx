@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useOutletContext, useParams } from 'react-router-dom';
-import { executionsApi, workflowsApi } from '../api/client.js';
+import { agentsApi, executionsApi, workflowsApi } from '../api/client.js';
 import WorkflowEditor from '../components/WorkflowEditor.jsx';
 import { Button, Empty, ErrorMessage, Input, Loading } from '../components/Ui.jsx';
 
@@ -16,6 +16,7 @@ export default function WorkflowDetailPage() {
   const { role } = useOutletContext();
   const editable = role === 'ADMIN' || role === 'OPERATOR';
   const [workflow, setWorkflow] = useState(null);
+  const [agents, setAgents] = useState([]);
   const [versions, setVersions] = useState([]);
   const [definition, setDefinition] = useState(null);
   const [error, setError] = useState(null);
@@ -27,8 +28,8 @@ export default function WorkflowDetailPage() {
 
   const load = async () => {
     try {
-      const [item, list] = await Promise.all([workflowsApi.get(orgId, id), workflowsApi.versions(orgId, id)]);
-      setWorkflow(item); setDefinition(item.draft || { nodes: [], edges: [] }); setVersions(list);
+      const [item, list, agentList] = await Promise.all([workflowsApi.get(orgId, id), workflowsApi.versions(orgId, id), agentsApi.list(orgId)]);
+      setWorkflow(item); setDefinition(item.draft || { nodes: [], edges: [] }); setVersions(list); setAgents(agentList);
     } catch (loadError) { setError(loadError); }
   };
   useEffect(() => { load(); }, [orgId, id]);
@@ -48,7 +49,7 @@ export default function WorkflowDetailPage() {
   const showVersion = async (version) => { try { setSelectedVersion(await workflowsApi.version(orgId, id, version)); } catch (err) { setError(err); } };
   if (!workflow && !error) return <Loading />;
   if (!workflow) return <section><ErrorMessage error={error} /></section>;
-  return <section className="space-y-4"><Link className="text-sm text-blue-700 underline" to={`/o/${orgId}/workflows`}>← Volver a workflows</Link><div className="rounded-lg bg-white p-4 shadow-sm"><div className="grid gap-3 md:grid-cols-2"><Input label="Nombre" value={workflow.name} onChange={(e) => setWorkflow({ ...workflow, name: e.target.value })} disabled={!editable} /><Input label="Descripción" value={workflow.description || ''} onChange={(e) => setWorkflow({ ...workflow, description: e.target.value })} disabled={!editable} /></div><div className="mt-4 flex items-center justify-between"><h2 className="font-semibold">Constructor visual</h2><span className="text-sm text-slate-500">Versión publicada: {workflow.latestVersion == null ? 'ninguna' : `v${workflow.latestVersion}`}</span></div>{definition && <WorkflowEditor key={workflow.id} definition={definition} editable={editable} sending={sending} onChange={(next) => { setDefinition(next); setProblems([]); }} onSave={saveDraft} onValidate={validate} onTest={() => setTestOpen(true)} onPublish={publish} />}{problems.length > 0 && <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800"><strong>Problemas de validación</strong><ul className="mt-1 list-disc pl-5">{problems.map((problem) => <li key={problem}>{problem}</li>)}</ul></div>}{error && <div className="mt-3"><ErrorMessage error={error} />{error.data?.problems && <ul className="mt-2 list-disc pl-5 text-sm text-red-700">{error.data.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}</div>}{editable && <button className="mt-3 text-sm text-blue-700 underline" onClick={() => saveDraft()}>Guardar cambios del nombre y descripción</button>}</div>{execution && <ExecutionResult orgId={orgId} execution={execution} />}{testOpen && <TestDialog onClose={() => setTestOpen(false)} onRun={run} sending={sending} />}<div className="rounded-lg bg-white p-4 shadow-sm"><h2 className="mb-3 font-semibold">Versiones publicadas</h2>{versions.length === 0 ? <Empty>Aún no hay versiones publicadas.</Empty> : <ul className="space-y-2">{versions.map((version) => <li key={version.version}><button className="text-left text-blue-700 underline" onClick={() => showVersion(version.version)}>Versión {version.version} — {new Date(version.createdAt).toLocaleString('es')}</button></li>)}</ul>}{selectedVersion && <div className="mt-4 rounded bg-slate-50 p-3 text-sm"><h3 className="font-medium">Versión {selectedVersion.version}</h3><p className="text-slate-500">Las versiones publicadas son de solo lectura y no se pueden editar.</p></div>}</div></section>;
+  return <section className="space-y-4"><Link className="text-sm text-blue-700 underline" to={`/o/${orgId}/workflows`}>← Volver a workflows</Link><div className="rounded-lg bg-white p-4 shadow-sm"><div className="grid gap-3 md:grid-cols-2"><Input label="Nombre" value={workflow.name} onChange={(e) => setWorkflow({ ...workflow, name: e.target.value })} disabled={!editable} /><Input label="Descripción" value={workflow.description || ''} onChange={(e) => setWorkflow({ ...workflow, description: e.target.value })} disabled={!editable} /></div><div className="mt-4 flex items-center justify-between"><h2 className="font-semibold">Constructor visual</h2><span className="text-sm text-slate-500">Versión publicada: {workflow.latestVersion == null ? 'ninguna' : `v${workflow.latestVersion}`}</span></div>{definition && <WorkflowEditor key={workflow.id} definition={definition} agents={agents} editable={editable} sending={sending} onChange={(next) => { setDefinition(next); setProblems([]); }} onSave={saveDraft} onValidate={validate} onTest={() => setTestOpen(true)} onPublish={publish} />}{problems.length > 0 && <div className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-800"><strong>Problemas de validación</strong><ul className="mt-1 list-disc pl-5">{problems.map((problem) => <li key={problem}>{problem}</li>)}</ul></div>}{error && <div className="mt-3"><ErrorMessage error={error} />{error.data?.problems && <ul className="mt-2 list-disc pl-5 text-sm text-red-700">{error.data.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul>}</div>}{editable && <button className="mt-3 text-sm text-blue-700 underline" onClick={() => saveDraft()}>Guardar cambios del nombre y descripción</button>}</div>{execution && <ExecutionResult orgId={orgId} execution={execution} />}{testOpen && <TestDialog onClose={() => setTestOpen(false)} onRun={run} sending={sending} />}<div className="rounded-lg bg-white p-4 shadow-sm"><h2 className="mb-3 font-semibold">Versiones publicadas</h2>{versions.length === 0 ? <Empty>Aún no hay versiones publicadas.</Empty> : <ul className="space-y-2">{versions.map((version) => <li key={version.version}><button className="text-left text-blue-700 underline" onClick={() => showVersion(version.version)}>Versión {version.version} — {new Date(version.createdAt).toLocaleString('es')}</button></li>)}</ul>}{selectedVersion && <div className="mt-4 rounded bg-slate-50 p-3 text-sm"><h3 className="font-medium">Versión {selectedVersion.version}</h3><p className="text-slate-500">Las versiones publicadas son de solo lectura y no se pueden editar.</p></div>}</div></section>;
 }
 
 function ExecutionResult({ orgId, execution }) {
