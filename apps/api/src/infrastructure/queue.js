@@ -16,6 +16,7 @@ export const workflowResumeQueue = new Queue('workflow-resume', { connection: co
 export const emailQueue = new Queue('notification-email', { connection: connectionFromEnv() });
 export const webhookInboundQueue = new Queue('webhook-inbound', { connection: connectionFromEnv() });
 export const webhookOutboundQueue = new Queue('webhook-outbound', { connection: connectionFromEnv() });
+export const documentProcessingQueue = new Queue('document-processing', { connection: connectionFromEnv() });
 export function enqueueExecution(executionId) {
   return workflowQueue.add('execute', { executionId }, {
     jobId: executionId,
@@ -42,6 +43,16 @@ export function enqueueWebhookOutbound(data) {
   return webhookOutboundQueue.add('deliver', data, {
     jobId: `outbound:${data.subscriptionId}:${Date.now()}:${Math.random()}`,
     attempts: 5, backoff: { type: 'exponential', delay: 1000 }, removeOnComplete: true,
+  });
+}
+
+export function enqueueDocumentProcessing(documentId) {
+  return documentProcessingQueue.add('process', { documentId }, {
+    jobId: `document:${documentId}`,
+    attempts: 3,
+    backoff: { type: 'exponential', delay: 2000 },
+    timeout: Number(process.env.DOCUMENT_JOB_TIMEOUT_MS || 300000),
+    removeOnComplete: true,
   });
 }
 

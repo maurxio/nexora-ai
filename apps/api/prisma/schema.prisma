@@ -78,6 +78,28 @@ enum IntegrationDirection {
   INBOUND
 }
 
+enum DocumentStatus {
+  UPLOADED
+  QUEUED
+  PROCESSING
+  EXTRACTED
+  VALIDATED
+  NEEDS_REVIEW
+  FAILED
+}
+
+enum DocumentType {
+  INVOICE
+  ID_DOCUMENT
+  GENERIC
+  UNKNOWN
+}
+
+enum ValidationSeverity {
+  ERROR
+  WARNING
+}
+
 model User {
   id           String         @id @default(uuid()) @db.Uuid
   email        String         @unique
@@ -89,6 +111,8 @@ model User {
   approvalAssignees ApprovalAssignee[]
   notifications Notification[]
   connectors Connector[] @relation("ConnectorCreator")
+  uploadedDocuments Document[] @relation("DocumentUploader")
+  documentCorrections DocumentCorrection[] @relation("DocumentCorrector")
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 }
@@ -108,8 +132,65 @@ model Organization {
   webhookEvents WebhookEvent[]
   webhookSubscriptions WebhookSubscription[]
   integrationLogs IntegrationLog[]
+  documents    Document[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+}
+
+model Document {
+  id              String         @id @default(uuid()) @db.Uuid
+  empresaId       String         @db.Uuid
+  uploadedById    String         @db.Uuid
+  originalName    String
+  mimeType        String
+  sizeBytes       Int
+  sha256          String
+  storageKey      String
+  status          DocumentStatus @default(UPLOADED)
+  docType         DocumentType   @default(UNKNOWN)
+  pageCount       Int?
+  ocrText         String?        @db.Text
+  ocrConfidence   Float?
+  extractedData   Json?
+  errorMessage    String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  processedAt     DateTime?
+  empresa         Organization   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  uploadedBy      User           @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: Cascade)
+  validations     DocumentValidation[]
+  corrections     DocumentCorrection[]
+
+  @@unique([empresaId, sha256])
+  @@index([empresaId, status])
+  @@index([empresaId, createdAt])
+}
+
+model DocumentValidation {
+  id         String            @id @default(uuid()) @db.Uuid
+  documentId String            @db.Uuid
+  rule       String
+  field      String
+  severity   ValidationSeverity
+  passed     Boolean
+  message    String
+  createdAt  DateTime          @default(now())
+  document   Document          @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, createdAt])
+}
+
+model DocumentCorrection {
+  id         String   @id @default(uuid()) @db.Uuid
+  documentId String   @db.Uuid
+  userId     String   @db.Uuid
+  previousData Json
+  newData     Json
+  createdAt  DateTime @default(now())
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  user       User     @relation("DocumentCorrector", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([documentId, createdAt])
 }
 
 model Connector {

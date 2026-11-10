@@ -17,5 +17,16 @@ services:
   redis:
     image: redis:7
     ports: ["6380:6379"]
+  document-worker:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/document-worker.Dockerfile
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - document_uploads:/data/uploads
 volumes:
   pgdata:
+  document_uploads:

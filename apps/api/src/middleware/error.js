@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 export const notFound = (_req, res) => res.status(404).json({ error: 'Ruta no encontrada' });
 
 export const errorHandler = (err, _req, res, _next) => {
+  if (err.code === 'LIMIT_FILE_SIZE') return res.status(413).json({ error: 'El archivo excede el tamaño máximo permitido' });
   if (err instanceof ZodError) {
     return res.status(422).json({ error: 'Datos inválidos', details: err.flatten() });
   }

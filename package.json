@@ -12,6 +12,7 @@
     "dev:api": "npm run dev -w apps/api",
     "dev:worker": "node --watch --env-file=.env workers/workflow-worker/src/index.js",
     "dev:notification-worker": "node --watch --env-file=.env workers/notification-worker/src/index.js",
+    "dev:document-worker": "node --watch --env-file=.env workers/document-worker/src/index.js",
     "dev:web": "npm run dev -w apps/web",
     "db:up": "docker compose up -d postgres redis",
     "db:down": "docker compose down",
