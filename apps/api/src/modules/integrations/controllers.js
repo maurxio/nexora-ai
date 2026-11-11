@@ -5,7 +5,7 @@ import * as schemas from './validators.js';
 export const createConnector = asyncHandler(async (req, res) => res.status(201).json(await service.createConnector(req.orgId, req.user.id, schemas.connectorSchema.parse(req.body))));
 export const listConnectors = asyncHandler(async (req, res) => res.json(await service.listConnectors(req.orgId)));
 export const getConnector = asyncHandler(async (req, res) => res.json(await service.getConnector(req.orgId, req.params.id)));
-export const updateConnector = asyncHandler(async (req, res) => res.json(await service.updateConnector(req.orgId, req.params.id, schemas.connectorPatchSchema.parse(req.body))));
+export const updateConnector = asyncHandler(async (req, res) => res.json(await service.updateConnector(req.orgId, req.params.id, schemas.connectorPatchSchema.parse(req.body), req.user.id)));
 export const deleteConnector = asyncHandler(async (req, res) => { await service.deleteConnector(req.orgId, req.params.id); res.status(204).send(); });
 export const testConnector = asyncHandler(async (req, res) => {
   const connector = await service.getConnector(req.orgId, req.params.id);

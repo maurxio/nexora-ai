@@ -12,6 +12,8 @@ import { storage } from './storage.js';
 import { classifyDocument } from './classifier.js';
 import { extractFields } from './extractor.js';
 import { validateExtractedData } from './rules.js';
+import { auditService } from '../../infrastructure/audit.js';
+import { recordExecutionMetric } from '../../jobs/observability.js';
 
 const execFileAsync = promisify(execFile);
 
@@ -54,6 +56,7 @@ async function extractText(buffer, mimeType, engine) {
 }
 
 export async function processDocument(documentId) {
+  const started = Date.now();
   const document = await prisma.document.findUnique({ where: { id: documentId } });
   if (!document) return;
   const claimed = await prisma.document.updateMany({ where: { id: documentId, status: { in: ['QUEUED', 'PROCESSING', 'EXTRACTED', 'NEEDS_REVIEW', 'FAILED'] } }, data: { status: 'PROCESSING', errorMessage: null } });
@@ -71,8 +74,11 @@ export async function processDocument(documentId) {
       prisma.document.update({ where: { id: documentId }, data: { status, docType, pageCount: extracted.pageCount, ocrText: extracted.text, ocrConfidence: extracted.confidence, extractedData: data, processedAt: new Date(), errorMessage: null } }),
       prisma.documentValidation.createMany({ data: validations.map((item) => ({ ...item, documentId })) }),
     ]);
+    await recordExecutionMetric({ tenantId: document.empresaId, type: 'DOCUMENT', referenceId: documentId, status: 'SUCCESS', durationMs: Date.now() - started });
+    await auditService.record({ tenantId: document.empresaId, action: 'DOCUMENT_PROCESSED', entity: 'Document', entityId: documentId, metadata: { status } });
   } catch (error) {
     await prisma.document.update({ where: { id: documentId }, data: { status: 'FAILED', errorMessage: error.message.slice(0, 1000), processedAt: new Date() } });
+    await recordExecutionMetric({ tenantId: document.empresaId, type: 'DOCUMENT', referenceId: documentId, status: 'ERROR', durationMs: Date.now() - started, errorCode: error.code || error.name || 'DOCUMENT_ERROR' });
     throw error;
   }
 }

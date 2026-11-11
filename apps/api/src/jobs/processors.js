@@ -2,6 +2,7 @@ import prisma from '../infrastructure/prisma.js';
 import { enqueueEmail } from '../infrastructure/queue.js';
 import { deliverWebhook } from '../modules/integrations/service.js';
 import { emitEvent } from '../modules/integrations/service.js';
+import { recordExecutionMetric } from './observability.js';
 
 export async function expireApprovals() {
   const candidates = await prisma.approval.findMany({
@@ -32,9 +33,20 @@ export function resumeWorkflow(job) {
 }
 
 export async function processInboundWebhook(job) {
+  const started = Date.now();
+  const event = await prisma.webhookEvent.findUnique({ where: { id: job.data.eventId }, select: { companyId: true } });
   await prisma.webhookEvent.updateMany({ where: { id: job.data.eventId, status: 'RECEIVED' }, data: { status: 'PROCESSED' } });
+  if (event) await recordExecutionMetric({ tenantId: event.companyId, type: 'INTEGRATION', referenceId: job.data.eventId, status: 'SUCCESS', durationMs: Date.now() - started });
 }
 
 export async function processOutboundWebhook(job) {
-  return deliverWebhook(job);
+  const started = Date.now();
+  try {
+    const result = await deliverWebhook(job);
+    if (job.data.companyId) await recordExecutionMetric({ tenantId: job.data.companyId, type: 'INTEGRATION', referenceId: job.data.subscriptionId, status: 'SUCCESS', durationMs: Date.now() - started });
+    return result;
+  } catch (error) {
+    if (job.data.companyId) await recordExecutionMetric({ tenantId: job.data.companyId, type: 'INTEGRATION', referenceId: job.data.subscriptionId, status: 'ERROR', durationMs: Date.now() - started, errorCode: error.code || error.name || 'WEBHOOK_ERROR' });
+    throw error;
+  }
 }

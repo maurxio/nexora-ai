@@ -2,6 +2,8 @@ import prisma from '../../infrastructure/prisma.js';
 import { enqueueEmail, enqueueWorkflowResume } from '../../infrastructure/queue.js';
 import { httpError } from '../../utils.js';
 import { emitEvent } from '../integrations/service.js';
+import { auditService } from '../../infrastructure/audit.js';
+import { recordExecutionMetric } from '../../jobs/observability.js';
 
 const assigneeSelect = { id: true, userId: true, decision: true, comment: true, decidedAt: true, user: { select: { id: true, name: true, email: true } } };
 
@@ -62,6 +64,7 @@ export async function getApproval(companyId, id) {
 }
 
 export async function decideApproval(companyId, userId, id, status, comment) {
+  const started = Date.now();
   const result = await prisma.$transaction(async (tx) => {
     const approval = await tx.approval.findFirst({ where: { id, companyId }, include: { assignees: true } });
     if (!approval) throw httpError(404, 'Aprobación no encontrada');
@@ -90,6 +93,8 @@ export async function decideApproval(companyId, userId, id, status, comment) {
   await queueEmails([result.notification]);
   await enqueueWorkflowResume({ approvalId: id, status, workflowRunId: result.approval.workflowRunId });
   await emitEvent(companyId, status === 'APPROVED' ? 'approval.approved' : 'approval.rejected', { approvalId: id, status });
+  await auditService.record({ tenantId: companyId, actorId: userId, action: `APPROVAL_${status}`, entity: 'Approval', entityId: id, metadata: { status } });
+  await recordExecutionMetric({ tenantId: companyId, type: 'APPROVAL', referenceId: id, status: 'SUCCESS', durationMs: Date.now() - started });
   return getApproval(companyId, id);
 }
 

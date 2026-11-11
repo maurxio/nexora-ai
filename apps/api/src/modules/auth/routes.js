@@ -11,6 +11,7 @@ import {
   rotateRefreshToken,
   verifyPassword,
 } from './service.js';
+import { auditService } from '../../infrastructure/audit.js';
 
 const router = Router({ mergeParams: true });
 
@@ -47,7 +48,13 @@ router.post('/login', asyncHandler(async (req, res) => {
   const user = await prisma.user.findUnique({ where: { email: input.email.toLowerCase() } });
   const valid = user && await verifyPassword(input.password, user.passwordHash);
   if (!valid) throw httpError(401, 'Credenciales inválidas');
-  res.json(authResponse(user, await issueRefreshToken(user.id)));
+  const response = authResponse(user, await issueRefreshToken(user.id));
+  const memberships = await prisma.membership.findMany({ where: { userId: user.id }, select: { organizationId: true } });
+  await Promise.all(memberships.map(({ organizationId }) => auditService.record({
+    tenantId: organizationId, actorId: user.id, action: 'LOGIN', entity: 'User', entityId: user.id,
+    ip: req.ip, userAgent: req.get('user-agent'),
+  })));
+  res.json(response);
 }));
 
 router.post('/refresh', asyncHandler(async (req, res) => {

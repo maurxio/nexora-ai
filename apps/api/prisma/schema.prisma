@@ -8,6 +8,7 @@ datasource db {
 }
 
 enum Role {
+  OWNER
   ADMIN
   OPERATOR
   AUDITOR
@@ -16,6 +17,7 @@ enum Role {
 enum ExecutionStatus {
   QUEUED
   RUNNING
+  WAITING_APPROVAL
   SUCCEEDED
   FAILED
   CANCELLED
@@ -100,6 +102,38 @@ enum ValidationSeverity {
   WARNING
 }
 
+enum MetricType {
+  WORKFLOW
+  INTEGRATION
+  DOCUMENT
+  APPROVAL
+}
+
+enum MetricStatus {
+  SUCCESS
+  ERROR
+  TIMEOUT
+}
+
+enum AiProvider {
+  openai_compatible
+  anthropic
+  gemini
+  mock
+}
+
+enum AiProviderStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AiUsageStatus {
+  SUCCESS
+  ERROR
+  TIMEOUT
+  LIMIT_EXCEEDED
+}
+
 model User {
   id           String         @id @default(uuid()) @db.Uuid
   email        String         @unique
@@ -113,6 +147,8 @@ model User {
   connectors Connector[] @relation("ConnectorCreator")
   uploadedDocuments Document[] @relation("DocumentUploader")
   documentCorrections DocumentCorrection[] @relation("DocumentCorrector")
+  auditLogs      AuditLog[] @relation("AuditActor")
+  aiProviderConfigs AiProviderConfig[] @relation("AiProviderConfigCreator")
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
 }
@@ -133,8 +169,56 @@ model Organization {
   webhookSubscriptions WebhookSubscription[]
   integrationLogs IntegrationLog[]
   documents    Document[]
+  auditLogs    AuditLog[]
+  executionMetrics ExecutionMetric[]
+  allowPrivateHosts Boolean @default(false)
+  aiProviderConfigs AiProviderConfig[]
+  aiUsages AiUsage[]
+  dailyStats    DailyStats[]
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
+}
+
+model AiProviderConfig {
+  id                 String          @id @default(uuid()) @db.Uuid
+  orgId              String          @db.Uuid
+  name               String
+  provider           AiProvider
+  baseUrl             String?
+  model              String
+  apiKeyEncrypted    String?
+  apiKeyLast4        String?
+  status             AiProviderStatus @default(ACTIVE)
+  isDefault          Boolean         @default(false)
+  monthlyTokenLimit  Int?
+  createdById        String          @db.Uuid
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  organization       Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  createdBy          User            @relation("AiProviderConfigCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  usages             AiUsage[]
+
+  @@unique([orgId, name])
+  @@index([orgId, status])
+  @@index([orgId, isDefault])
+}
+
+model AiUsage {
+  id           String          @id @default(uuid()) @db.Uuid
+  orgId        String          @db.Uuid
+  runId        String?         @db.Uuid
+  configId     String          @db.Uuid
+  inputTokens  Int             @default(0)
+  outputTokens Int             @default(0)
+  latencyMs    Int
+  status       AiUsageStatus
+  createdAt    DateTime        @default(now())
+  organization Organization    @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  config       AiProviderConfig @relation(fields: [configId], references: [id], onDelete: Cascade)
+
+  @@index([orgId, createdAt])
+  @@index([configId, createdAt])
+  @@index([runId])
 }
 
 model Document {
@@ -164,6 +248,7 @@ model Document {
   @@unique([empresaId, sha256])
   @@index([empresaId, status])
   @@index([empresaId, createdAt])
+  @@index([empresaId, processedAt])
 }
 
 model DocumentValidation {
@@ -449,4 +534,54 @@ model ExecutionStep {
   execution   WorkflowExecution @relation(fields: [executionId], references: [id], onDelete: Cascade)
 
   @@index([executionId])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String   @db.Uuid
+  actorId    String?  @db.Uuid
+  action     String
+  entity     String
+  entityId   String?
+  metadata   Json
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+  tenant     Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor      User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entity, entityId])
+}
+
+model ExecutionMetric {
+  id           String       @id @default(uuid()) @db.Uuid
+  tenantId     String       @db.Uuid
+  type         MetricType
+  referenceId  String?
+  status       MetricStatus
+  durationMs   Int
+  errorCode    String?
+  createdAt    DateTime     @default(now())
+  tenant       Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, type, status, createdAt])
+  @@index([tenantId, errorCode, createdAt])
+}
+
+model DailyStats {
+  tenantId       String   @db.Uuid
+  date           DateTime @db.Date
+  type           MetricType
+  total          Int      @default(0)
+  successCount   Int      @default(0)
+  errorCount     Int      @default(0)
+  timeoutCount   Int      @default(0)
+  totalDurationMs BigInt  @default(0)
+  p95DurationMs  Int?
+  tenant         Organization @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@id([tenantId, date, type])
+  @@index([tenantId, date])
 }

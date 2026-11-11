@@ -5,6 +5,7 @@ import { asyncHandler, httpError } from '../../utils.js';
 import { requireRole } from '../../middleware/rbac.js';
 import { tenant } from '../../middleware/tenant.js';
 import crypto from 'node:crypto';
+import { auditRequest } from '../../infrastructure/audit.js';
 
 const router = Router({ mergeParams: true });
 
@@ -78,10 +79,12 @@ router.patch('/:orgId/members/:userId', tenant, requireRole('ADMIN'), asyncHandl
     const admins = await prisma.membership.count({ where: { organizationId: req.params.orgId, role: 'ADMIN' } });
     if (admins <= 1) throw httpError(400, 'La organización debe tener al menos un administrador');
   }
-  res.json(await prisma.membership.update({
+  const updated = await prisma.membership.update({
     where: { userId_organizationId: { userId: req.params.userId, organizationId: req.params.orgId } },
     data: { role: input.role },
-  }));
+  });
+  await auditRequest(req, 'ROLE_CHANGED', 'Membership', `${req.params.userId}:${req.params.orgId}`, { role: input.role });
+  res.json(updated);
 }));
 
 export default router;

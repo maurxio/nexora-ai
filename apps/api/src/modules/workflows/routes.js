@@ -6,6 +6,7 @@ import { requireRole } from '../../middleware/rbac.js';
 import { shapeSchema, validateGraph } from './definition.js';
 import { enqueueExecution } from '../../infrastructure/queue.js';
 import { MAX_INPUT_BYTES } from '@nexora/shared';
+import { auditRequest } from '../../infrastructure/audit.js';
 
 const router = Router({ mergeParams: true });
 const idSchema = z.string().uuid();
@@ -61,6 +62,7 @@ router.post('/', requireRole('ADMIN', 'OPERATOR'), asyncHandler(async (req, res)
     const workflow = await prisma.workflow.create({
       data: { ...input, organizationId: req.orgId },
     });
+    await auditRequest(req, 'WORKFLOW_CREATED', 'Workflow', workflow.id, { name: workflow.name });
     res.status(201).json(workflow);
   } catch (error) {
     if (error.code === 'P2002') throw httpError(409, 'Ya existe un workflow con ese nombre');
@@ -81,6 +83,7 @@ router.patch('/:id', validateWorkflowId, requireRole('ADMIN', 'OPERATOR'), async
       where: { id: existing.id },
       data: input,
     });
+    await auditRequest(req, 'WORKFLOW_UPDATED', 'Workflow', workflow.id, { fields: Object.keys(input) });
     res.json(workflow);
   } catch (error) {
     if (error.code === 'P2002') throw httpError(409, 'Ya existe un workflow con ese nombre');
@@ -91,6 +94,7 @@ router.patch('/:id', validateWorkflowId, requireRole('ADMIN', 'OPERATOR'), async
 router.delete('/:id', validateWorkflowId, requireRole('ADMIN'), asyncHandler(async (req, res) => {
   const existing = await findWorkflow(req);
   await prisma.workflow.delete({ where: { id: existing.id } });
+  await auditRequest(req, 'WORKFLOW_DELETED', 'Workflow', existing.id);
   res.status(204).send();
 }));
 

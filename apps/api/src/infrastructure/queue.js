@@ -59,3 +59,10 @@ export function enqueueDocumentProcessing(documentId) {
 export function scheduleApprovalExpiry() {
   return approvalQueue.add('expire', {}, { repeat: { every: 60_000 }, jobId: 'approval-expiry', removeOnComplete: true });
 }
+
+export function scheduleObservabilityJobs() {
+  return Promise.all([
+    approvalQueue.add('aggregate-daily-stats', {}, { repeat: { every: 86_400_000 }, jobId: 'aggregate-daily-stats', removeOnComplete: true }),
+    approvalQueue.add('retain-observability', {}, { repeat: { every: 86_400_000 }, jobId: 'retain-observability', removeOnComplete: true }),
+  ]);
+}

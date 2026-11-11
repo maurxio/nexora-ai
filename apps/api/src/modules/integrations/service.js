@@ -4,6 +4,7 @@ import { enqueueWebhookInbound, enqueueWebhookOutbound } from '../../infrastruct
 import { decryptSecret, encryptSecret, hashSecret, hmac } from './crypto.js';
 import { assertSafeUrl, timeoutSignal } from './ssrf.js';
 import { httpError } from '../../utils.js';
+import { auditService } from '../../infrastructure/audit.js';
 
 const sensitive = /authorization|cookie|set-cookie|api[-_]?key|token|secret|password/i;
 const defaultHeaders = () => ({ 'content-type': 'application/json' });
@@ -111,16 +112,19 @@ export async function createConnector(companyId, userId, input) {
   const { credentials: rawCredentials, ...connectorInput } = input;
   const encryptedCredentials = rawCredentials ? encryptSecret(JSON.stringify(rawCredentials)) : null;
   const item = await prisma.connector.create({ data: { companyId, createdById: userId, ...connectorInput, encryptedCredentials } });
+  await auditService.record({ tenantId: companyId, actorId: userId, action: 'CONNECTOR_CREATED', entity: 'Connector', entityId: item.id, metadata: { type: item.type, name: item.name } });
   return publicConnector(item);
 }
 export async function listConnectors(companyId) { return (await prisma.connector.findMany({ where: { companyId }, orderBy: { createdAt: 'desc' } })).map(publicConnector); }
 export async function getConnector(companyId, id) { const item = await prisma.connector.findFirst({ where: { id, companyId } }); if (!item) throw httpError(404, 'Conector no encontrado'); return publicConnector(item); }
-export async function updateConnector(companyId, id, input) {
+export async function updateConnector(companyId, id, input, userId = null) {
   await getConnector(companyId, id);
   const { credentials: rawCredentials, ...connectorInput } = input;
   const data = { ...connectorInput };
   if (rawCredentials !== undefined) data.encryptedCredentials = rawCredentials ? encryptSecret(JSON.stringify(rawCredentials)) : null;
-  return publicConnector(await prisma.connector.update({ where: { id }, data }));
+  const item = await prisma.connector.update({ where: { id }, data });
+  await auditService.record({ tenantId: companyId, actorId: userId, action: 'CONNECTOR_UPDATED', entity: 'Connector', entityId: id, metadata: { fields: Object.keys(connectorInput) } });
+  return publicConnector(item);
 }
 export async function deleteConnector(companyId, id) { const result = await prisma.connector.deleteMany({ where: { id, companyId } }); if (!result.count) throw httpError(404, 'Conector no encontrado'); }
 

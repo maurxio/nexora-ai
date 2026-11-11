@@ -18,6 +18,7 @@
     "db:down": "docker compose down",
     "db:generate": "npm exec prisma generate -- --schema apps/api/prisma/schema.prisma",
     "db:migrate": "npm exec prisma migrate dev -- --schema apps/api/prisma/schema.prisma",
+    "db:seed": "node --env-file=.env apps/api/prisma/seed.js",
     "test": "npm test --workspaces --if-present"
   },
   "devDependencies": {

@@ -18,7 +18,7 @@ async function find(req) {
 }
 
 router.get('/', asyncHandler(async (req, res) => {
-  const query = z.object({ status: z.enum(['QUEUED', 'RUNNING', 'SUCCEEDED', 'FAILED', 'CANCELLED']).optional(), workflowId: uuid.optional(), limit: z.coerce.number().int().min(1).max(100).default(25), cursor: uuid.optional() }).parse(req.query);
+  const query = z.object({ status: z.enum(['QUEUED', 'RUNNING', 'WAITING_APPROVAL', 'SUCCEEDED', 'FAILED', 'CANCELLED']).optional(), workflowId: uuid.optional(), limit: z.coerce.number().int().min(1).max(100).default(25), cursor: uuid.optional() }).parse(req.query);
   const items = await prisma.workflowExecution.findMany({ where: { organizationId: req.orgId, ...(query.status ? { status: query.status } : {}), ...(query.workflowId ? { workflowId: query.workflowId } : {}), ...(query.cursor ? { id: { lt: query.cursor } } : {}) }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: query.limit + 1, select: { id: true, workflowId: true, workflowVersionId: true, status: true, error: true, startedAt: true, finishedAt: true, createdAt: true, updatedAt: true } });
   const nextCursor = items.length > query.limit ? items.pop().id : null;
   res.json({ items, nextCursor });
