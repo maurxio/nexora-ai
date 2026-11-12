@@ -466,3 +466,12 @@ test('foreign resource IDs stay inaccessible with memberships in both tenants ac
     });
   }
 });
+
+test('auditor cannot access administrator observability or AI configuration', async () => {
+  for (const path of ['audit-logs', 'ai/providers']) {
+    await request(app)
+      .get(`/api/v1/orgs/${orgA.id}/${path}`)
+      .set('Authorization', `Bearer ${accessToken(auditor.id)}`)
+      .expect(403);
+  }
+});
