@@ -75,11 +75,25 @@ jobs:
           context: .
           file: infrastructure/docker/${{ matrix.target == 'frontend' && 'frontend' || 'api' }}.Dockerfile
           target: ${{ matrix.target == 'frontend' && '' || matrix.target }}
-          push: true
+          push: false
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.target }}
           cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+      - name: Scan the exact release image before pushing
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: ${{ steps.prefix.outputs.value }}/${{ matrix.target }}:${{ needs.gate.outputs.sha }}
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: false
+      - name: Push scanned SHA and semver tags
+        env:
+          IMAGE: ${{ steps.prefix.outputs.value }}/${{ matrix.target }}
+        run: docker push --all-tags "$IMAGE"
+
   staging:
     needs: [gate, images]
     if: github.event_name == 'workflow_run'
