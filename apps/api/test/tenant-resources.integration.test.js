@@ -361,3 +361,37 @@ test('organizations: foreign details, members and membership mutations are denie
     0,
   );
 });
+
+test('analytics and audit: aggregates, errors, timeseries and logs exclude foreign data', async () => {
+  const metric = await prisma.executionMetric.create({
+    data: {
+      tenantId: orgB.id,
+      type: 'WORKFLOW',
+      status: 'ERROR',
+      durationMs: 999,
+      errorCode: 'PRIVATE_ORG_B',
+    },
+  });
+  const audit = await prisma.auditLog.create({
+    data: { tenantId: orgB.id, action: 'PRIVATE_ORG_B', entity: 'Workflow', metadata: {} },
+  });
+  await prisma.dailyStats.create({
+    data: { tenantId: orgB.id, date: new Date(), type: 'WORKFLOW', total: 99, errorCount: 99 },
+  });
+  for (const path of [
+    'analytics/overview',
+    'analytics/timeseries',
+    'analytics/top-errors',
+    'audit-logs',
+  ]) {
+    await api('get', orgB.id, path).expect(403);
+    const response = await api('get', orgA.id, path).expect(200);
+    assert.ok(!JSON.stringify(response.body).includes('PRIVATE_ORG_B'));
+    if (path === 'analytics/overview') assert.equal(response.body.totalExecutions, 0);
+    else if (path === 'audit-logs') assert.deepEqual(response.body.data, []);
+    else assert.deepEqual(response.body, []);
+  }
+  await api('get', orgA.id, 'audit-logs', undefined, auditor).expect(403);
+  assert.deepEqual(await prisma.executionMetric.findUnique({ where: { id: metric.id } }), metric);
+  assert.deepEqual(await prisma.auditLog.findUnique({ where: { id: audit.id } }), audit);
+});
