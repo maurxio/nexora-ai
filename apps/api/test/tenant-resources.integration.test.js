@@ -198,3 +198,33 @@ test('integrations: connectors, endpoints, subscriptions and logs remain tenant 
   assert.equal(events.body.total, 0);
   await hidden('integrations/integration-logs', [log.id]);
 });
+
+test('documents: foreign uploads, files, corrections, reprocessing and deletion are denied', async () => {
+  const row = await prisma.document.create({
+    data: {
+      empresaId: orgB.id,
+      uploadedById: user.id,
+      originalName: 'private.png',
+      mimeType: 'image/png',
+      sizeBytes: 1,
+      sha256: crypto.randomUUID(),
+      storageKey: 'not-read-by-denied-requests',
+    },
+  });
+  await request(app)
+    .post(`/api/v1/orgs/${orgB.id}/documents`)
+    .set('Authorization', `Bearer ${accessToken(user.id)}`)
+    .attach('file', Buffer.from('fixture'), 'private.png')
+    .expect(403);
+  await denied([
+    ['get', `documents/${row.id}`],
+    ['get', `documents/${row.id}/file`],
+    ['patch', `documents/${row.id}/extracted-data`, { extractedData: { private: 'changed' } }],
+    ['post', `documents/${row.id}/reprocess`, {}],
+    ['delete', `documents/${row.id}`],
+  ]);
+  await hidden('documents', [row.id]);
+  assert.deepEqual(await prisma.document.findUnique({ where: { id: row.id } }), row);
+  assert.equal(await prisma.document.count({ where: { empresaId: orgB.id } }), 1);
+  assert.equal(await prisma.documentCorrection.count({ where: { documentId: row.id } }), 0);
+});
