@@ -101,3 +101,23 @@ test('workflows: foreign rows cannot be read, changed, deleted, published or exe
   );
   assert.equal(await prisma.workflowExecution.count({ where: { organizationId: orgB.id } }), 1);
 });
+
+test('agents: foreign CRUD and tool writes leave the agent unchanged', async () => {
+  const row = await prisma.agent.create({
+    data: { organizationId: orgB.id, name: 'Private agent', systemInstructions: 'Private' },
+  });
+  await api('post', orgB.id, 'agents', {
+    name: 'Unauthorized agent',
+    systemInstructions: 'Private',
+  }).expect(403);
+  await denied([
+    ['get', `agents/${row.id}`],
+    ['patch', `agents/${row.id}`, { name: 'Changed' }],
+    ['delete', `agents/${row.id}`],
+    ['put', `agents/${row.id}/tools`, { tools: [] }],
+  ]);
+  await api('post', orgB.id, `agents/${row.id}/run`, {}).expect(403);
+  await hidden('agents', [row.id]);
+  assert.deepEqual(await prisma.agent.findUnique({ where: { id: row.id } }), row);
+  assert.equal(await prisma.agent.count({ where: { organizationId: orgB.id } }), 1);
+});
