@@ -477,3 +477,37 @@ test('auditor cannot access administrator observability or AI configuration', as
       .expect(403);
   }
 });
+
+test('auditor can mark personal notifications but cannot mark another user notification', async () => {
+  const own = await prisma.notification.create({
+    data: {
+      companyId: orgA.id,
+      userId: auditor.id,
+      type: 'GENERIC',
+      title: 'Personal',
+      body: 'Fixture',
+      data: {},
+    },
+  });
+  const other = await prisma.notification.create({
+    data: {
+      companyId: orgA.id,
+      userId: user.id,
+      type: 'GENERIC',
+      title: 'Private',
+      body: 'Fixture',
+      data: {},
+    },
+  });
+  const headers = { Authorization: `Bearer ${accessToken(auditor.id)}` };
+  await request(app)
+    .patch(`/api/v1/orgs/${orgA.id}/notifications/${own.id}/read`)
+    .set(headers)
+    .expect(204);
+  await request(app)
+    .patch(`/api/v1/orgs/${orgA.id}/notifications/${other.id}/read`)
+    .set(headers)
+    .expect(404);
+  assert.ok((await prisma.notification.findUnique({ where: { id: own.id } })).readAt);
+  assert.equal((await prisma.notification.findUnique({ where: { id: other.id } })).readAt, null);
+});

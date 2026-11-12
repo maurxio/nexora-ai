@@ -3,7 +3,7 @@ import { Router } from 'express';
 import * as controller from './controllers.js';
 
 const router = Router({ mergeParams: true });
-router.use((req, res, next) =>
+router.use('/approvals', (req, res, next) =>
   ['GET', 'HEAD', 'OPTIONS'].includes(req.method)
     ? next()
     : requireRole('OWNER', 'ADMIN', 'OPERATOR')(req, res, next),
