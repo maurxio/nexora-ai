@@ -4,7 +4,7 @@
   "type": "module",
   "exports": "./src/index.js",
   "scripts": {
-    "test": "node --test test"
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
     "@nexora/shared": "0.2.0"

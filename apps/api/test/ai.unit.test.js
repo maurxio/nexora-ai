@@ -1,3 +1,5 @@
+import dns from 'node:dns/promises';
+import { mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { afterEach, test } from 'node:test';
 import { encryptApiKey, decryptApiKey } from '../src/modules/ai/crypto.js';
@@ -6,15 +8,21 @@ import { createProvider } from '../src/modules/ai/providers.js';
 
 process.env.AI_KEY_ENCRYPTION_SECRET = 'test-secret-with-more-than-32-characters';
 
+const nativeFetch = globalThis.fetch;
 afterEach(() => {
-  delete globalThis.fetch;
+  globalThis.fetch = nativeFetch;
+  mock.restoreAll();
 });
 
 test('cifra y descifra API keys con formato versionado', () => {
   const encrypted = encryptApiKey('sk-test-secret');
   assert.match(encrypted, /^v1\./);
   assert.equal(decryptApiKey(encrypted), 'sk-test-secret');
-  assert.throws(() => decryptApiKey(`${encrypted.slice(0, -1)}A`), /No se pudo descifrar/);
+  const parts = encrypted.split('.');
+  const tag = Buffer.from(parts[2], 'base64');
+  tag[0] ^= 1;
+  parts[2] = tag.toString('base64');
+  assert.throws(() => decryptApiKey(parts.join('.')), /No se pudo descifrar/);
 });
 
 test('rechaza IPs privadas, loopback y protocolos inseguros', async () => {
@@ -29,6 +37,7 @@ test('rechaza IPs privadas, loopback y protocolos inseguros', async () => {
 });
 
 test('bloquea un redirect hacia una red privada', async () => {
+  mock.method(dns, 'lookup', async () => [{ address: '93.184.216.34', family: 4 }]);
   globalThis.fetch = async () =>
     new Response('', { status: 302, headers: { location: 'http://127.0.0.1:1' } });
   const { fetchSafe } = await import('../src/modules/ai/ssrf.js');

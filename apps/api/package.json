@@ -5,7 +5,10 @@
   "scripts": {
     "dev": "node --watch --env-file=../../.env src/server.js",
     "start": "node src/server.js",
-    "test": "node --test --env-file=../../.env test"
+    "test": "node --import ../../test/env.js --test --test-timeout=30000 --test-concurrency=1 test/*.test.js",
+    "test:unit": "node --import ../../test/env.js --test --test-timeout=30000 --test-concurrency=1 test/*.unit.test.js test/documents.rules.test.js",
+    "test:integration": "node --import ../../test/env.js --test --test-timeout=30000 --test-concurrency=1 test/*.integration.test.js test/approvals.test.js",
+    "build": "node ../../scripts/check-js.js src"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

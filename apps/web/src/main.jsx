@@ -1,8 +1,9 @@
+import Protected from './auth/ProtectedRoute.jsx';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import './index.css';
-import { SessionProvider, useSession } from './auth/SessionContext.jsx';
+import { SessionProvider } from './auth/SessionContext.jsx';
 import Layout from './components/Layout.jsx';
 import { Login, Register } from './pages/AuthPages.jsx';
 import AgentsPage from './pages/AgentsPage.jsx';
@@ -45,12 +46,6 @@ class ErrorBoundary extends React.Component {
     }
     return this.props.children;
   }
-}
-
-function Protected() {
-  const { user, loading } = useSession();
-  if (loading) return <p className="p-8 text-center text-slate-500">Cargando sesión...</p>;
-  return user ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
 function App() {

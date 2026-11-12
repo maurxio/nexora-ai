@@ -1,14 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import prisma from '../src/infrastructure/prisma.js';
-import {
-  approvalQueue,
-  emailQueue,
-  workflowQueue,
-  workflowResumeQueue,
-  webhookInboundQueue,
-  webhookOutboundQueue,
-} from '../src/infrastructure/queue.js';
+import { closeInfrastructure } from '../src/infrastructure/shutdown.js';
 import { createApproval, decideApproval, getApproval } from '../src/modules/approvals/service.js';
 import { expireApprovals } from '../src/jobs/processors.js';
 
@@ -51,17 +44,13 @@ before(async () => {
 });
 
 after(async () => {
-  await prisma.organization.deleteMany({ where: { id: { in: [company.id, otherCompany.id] } } });
-  await prisma.user.deleteMany({ where: { id: { in: [requester.id, assignee.id, outsider.id] } } });
-  await Promise.all([
-    approvalQueue.close(),
-    emailQueue.close(),
-    workflowQueue.close(),
-    workflowResumeQueue.close(),
-    webhookInboundQueue.close(),
-    webhookOutboundQueue.close(),
-  ]);
-  await prisma.$disconnect();
+  await prisma.organization.deleteMany({
+    where: { id: { in: [company?.id, otherCompany?.id].filter(Boolean) } },
+  });
+  await prisma.user.deleteMany({
+    where: { id: { in: [requester?.id, assignee?.id, outsider?.id].filter(Boolean) } },
+  });
+  await closeInfrastructure();
 });
 
 test('creates an approval and notifications for each assignee', async () => {

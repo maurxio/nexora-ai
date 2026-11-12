@@ -62,3 +62,46 @@ test('bloquea destinos SSRF', async () => {
     );
   }
 });
+
+test('executes deterministic nodes, reports attempts, propagates cancellation and failures', async () => {
+  const { executeNode, plan } = await import('../src/index.js');
+  const signal = new AbortController().signal;
+  const context = { input: { value: 7 }, nodes: {} };
+  let succeeded = 0;
+  const result = await executeNode(
+    { id: 't', type: 'transform', config: { set: { result: '{{input.value}}' } } },
+    context,
+    signal,
+    {
+      onAttempt: () => 'step',
+      onSuccess: (step) => {
+        assert.equal(step, 'step');
+        succeeded++;
+      },
+    },
+  );
+  assert.equal(succeeded, 1);
+  assert.deepEqual(result.output, { result: 7 });
+  assert.equal((await executeNode({ type: 'trigger' }, context, signal)).output.value, 7);
+  assert.equal((await executeNode({ type: 'agent' }, context, signal)).output.simulated, true);
+  assert.equal(
+    (await executeNode({ type: 'notification', config: { message: 'hello' } }, context, signal))
+      .output.message,
+    'hello',
+  );
+  await assert.rejects(
+    () => executeNode({ type: 'approval' }, context, signal),
+    /no están soportados/,
+  );
+  await assert.rejects(
+    () => executeNode({ type: 'transform', config: { simulateDelayMs: -1 } }, context, signal),
+    /no es válido/,
+  );
+  const cancelled = new AbortController();
+  cancelled.abort();
+  await assert.rejects(
+    () => executeNode({ type: 'transform' }, context, cancelled.signal),
+    /cancelada/,
+  );
+  assert.equal(plan({ nodes: [{ id: 't', type: 'trigger' }], edges: [] }, {}).length, 1);
+});
