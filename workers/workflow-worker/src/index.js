@@ -1,3 +1,6 @@
+import { startWorkerHealth } from '../../../apps/api/src/infrastructure/worker-health.js';
+import '../../../apps/api/src/config/bootstrap.js';
+import { installShutdown } from '../../../apps/api/src/infrastructure/shutdown.js';
 import { Worker } from 'bullmq';
 import prisma from '../../../apps/api/src/infrastructure/prisma.js';
 import { enqueueExecution } from '../../../apps/api/src/infrastructure/queue.js';
@@ -12,6 +15,9 @@ function connectionFromEnv() {
   return {
     host: url.hostname,
     port: Number(url.port || 6379),
+    db: Number(url.pathname.slice(1) || 0),
+    ...(url.protocol === 'rediss:' ? { tls: {} } : {}),
+    ...(url.username ? { username: decodeURIComponent(url.username) } : {}),
     ...(url.password ? { password: decodeURIComponent(url.password) } : {}),
   };
 }
@@ -217,10 +223,10 @@ const recoveryTimer = setInterval(
   () => recover().catch((error) => logger.error({ err: error }, 'workflow recovery failed')),
   30000,
 );
+const stopHealth = startWorkerHealth([worker]);
 async function shutdown() {
+  await stopHealth();
   clearInterval(recoveryTimer);
   await worker.close();
-  await prisma.$disconnect();
 }
-process.once('SIGINT', shutdown);
-process.once('SIGTERM', shutdown);
+installShutdown(shutdown);

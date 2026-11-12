@@ -72,7 +72,6 @@ router.get(
       workflowId: execution.workflow.id,
       workflowVersion: execution.workflowVersion.version,
       workflow: undefined,
-      workflowVersion: undefined,
     });
   }),
 );

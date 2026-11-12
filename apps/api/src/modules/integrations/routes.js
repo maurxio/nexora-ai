@@ -1,8 +1,14 @@
+import { requireRole } from '../../middleware/rbac.js';
 import { Router } from 'express';
 import * as controller from './controllers.js';
 import { assertEncryptionKey } from './crypto.js';
 
 const router = Router({ mergeParams: true });
+router.use((req, res, next) =>
+  ['GET', 'HEAD', 'OPTIONS'].includes(req.method)
+    ? next()
+    : requireRole('OWNER', 'ADMIN', 'OPERATOR')(req, res, next),
+);
 assertEncryptionKey();
 router.post('/connectors', controller.createConnector);
 router.get('/connectors', controller.listConnectors);

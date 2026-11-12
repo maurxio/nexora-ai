@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
 import jwt from 'jsonwebtoken';
 import prisma from '../../infrastructure/prisma.js';
+import { httpError } from '../../utils.js';
 
 const refreshTokenDays = Number(process.env.REFRESH_TOKEN_DAYS || 7);
 
@@ -46,7 +47,11 @@ export async function issueRefreshToken(userId) {
 export async function rotateRefreshToken(tokenId, userId) {
   const raw = newRefreshToken();
   await prisma.$transaction(async (tx) => {
-    await tx.refreshToken.update({ where: { id: tokenId }, data: { revokedAt: new Date() } });
+    const revoked = await tx.refreshToken.updateMany({
+      where: { id: tokenId, revokedAt: null, expiresAt: { gt: new Date() } },
+      data: { revokedAt: new Date() },
+    });
+    if (!revoked.count) throw httpError(401, 'Refresh token inválido o expirado');
     await tx.refreshToken.create({
       data: {
         userId,

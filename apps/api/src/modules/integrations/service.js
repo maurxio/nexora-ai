@@ -68,7 +68,6 @@ async function requestAttempt({
 }) {
   const started = Date.now();
   let statusCode = null;
-  let errorMessage = null;
   try {
     await assertSafeUrl(url);
     const response = await fetch(url, {
@@ -141,7 +140,7 @@ async function requestAttempt({
       durationMs: Date.now() - started,
     };
   } catch (error) {
-    errorMessage = error.message;
+    const errorMessage = error.message;
     await prisma.integrationLog.create({
       data: {
         companyId,
@@ -179,9 +178,8 @@ export async function executeHttpRequest({
   body,
   timeoutMs,
 }) {
-  let connector = null;
   if (connectorId) {
-    connector = await prisma.connector.findFirst({
+    const connector = await prisma.connector.findFirst({
       where: { id: connectorId, companyId, isActive: true },
     });
     if (!connector) throw httpError(404, 'Conector no encontrado');
@@ -201,6 +199,7 @@ export async function executeHttpRequest({
   let lastError;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     let result;
+    lastError = undefined;
     try {
       result = await requestAttempt({
         companyId,

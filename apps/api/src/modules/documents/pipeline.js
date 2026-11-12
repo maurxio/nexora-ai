@@ -19,7 +19,10 @@ const execFileAsync = promisify(execFile);
 
 export class OcrEngine {
   async recognize(buffer) {
-    const worker = await createWorker('spa+eng');
+    const options = process.env.OCR_LANG_PATH
+      ? { langPath: process.env.OCR_LANG_PATH, gzip: false, cacheMethod: 'none' }
+      : {};
+    const worker = await createWorker('spa+eng', 1, options);
     try {
       const { data } = await worker.recognize(buffer);
       return { text: data.text, confidence: data.confidence || 0 };

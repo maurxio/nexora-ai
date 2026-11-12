@@ -1,3 +1,4 @@
+import { requireRole } from '../../middleware/rbac.js';
 import { Router } from 'express';
 import multer from 'multer';
 import { fileTypeFromBuffer } from 'file-type';
@@ -12,6 +13,11 @@ import { hashBuffer } from './pipeline.js';
 import { validateExtractedData } from './rules.js';
 
 const router = Router({ mergeParams: true });
+router.use((req, res, next) =>
+  ['GET', 'HEAD', 'OPTIONS'].includes(req.method)
+    ? next()
+    : requireRole('OWNER', 'ADMIN', 'OPERATOR')(req, res, next),
+);
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: Number(process.env.DOCUMENT_UPLOAD_MAX_BYTES || 15728640), files: 1 },

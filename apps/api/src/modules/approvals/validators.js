@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const uuid = z.string().uuid();
-const payload = z.record(z.any());
+const payload = z.record(z.string(), z.any());
 
 export const createApprovalSchema = z
   .object({

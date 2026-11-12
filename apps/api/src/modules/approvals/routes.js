@@ -1,7 +1,13 @@
+import { requireRole } from '../../middleware/rbac.js';
 import { Router } from 'express';
 import * as controller from './controllers.js';
 
 const router = Router({ mergeParams: true });
+router.use((req, res, next) =>
+  ['GET', 'HEAD', 'OPTIONS'].includes(req.method)
+    ? next()
+    : requireRole('OWNER', 'ADMIN', 'OPERATOR')(req, res, next),
+);
 
 router.post('/approvals', controller.createApproval);
 router.get('/approvals', controller.listApprovals);

@@ -190,7 +190,7 @@ router.get(
 
 const executeSchema = z
   .object({
-    input: z.record(z.any()).default({}),
+    input: z.record(z.string(), z.any()).default({}),
     version: z.number().int().positive().optional(),
   })
   .strict();

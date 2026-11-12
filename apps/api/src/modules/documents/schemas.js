@@ -24,8 +24,8 @@ const identity = z
 export const extractedDataSchemas = {
   INVOICE: invoice,
   ID_DOCUMENT: identity,
-  GENERIC: z.record(z.any()),
-  UNKNOWN: z.record(z.any()),
+  GENERIC: z.record(z.string(), z.any()),
+  UNKNOWN: z.record(z.string(), z.any()),
 };
 export const documentIdSchema = z.object({ id: z.string().uuid() });
 export const listSchema = z.object({
@@ -38,4 +38,4 @@ export const listSchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
-export const correctionSchema = z.object({ extractedData: z.record(z.any()) }).strict();
+export const correctionSchema = z.object({ extractedData: z.record(z.string(), z.any()) }).strict();

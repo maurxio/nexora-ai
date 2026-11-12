@@ -17,7 +17,7 @@ const nodeSchema = z
       'notification',
       'agent',
     ]),
-    config: z.record(z.any()),
+    config: z.record(z.string(), z.any()),
     position: z.object({ x: z.number(), y: z.number() }).optional(),
   })
   .strict();

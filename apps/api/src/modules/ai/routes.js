@@ -57,17 +57,10 @@ router.patch(
 );
 router.get(
   '/:id',
-  asyncHandler(async (req, res) =>
-    res.json(
-      (() => {
-        const item = service.getConfig(req.orgId, configId(req));
-        return item.then(({ apiKeyEncrypted, ...safe }) => ({
-          ...safe,
-          hasApiKey: Boolean(apiKeyEncrypted),
-        }));
-      })(),
-    ),
-  ),
+  asyncHandler(async (req, res) => {
+    const { apiKeyEncrypted, ...item } = await service.getConfig(req.orgId, configId(req));
+    res.json({ ...item, hasApiKey: Boolean(apiKeyEncrypted) });
+  }),
 );
 router.patch(
   '/:id',

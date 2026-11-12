@@ -1,4 +1,5 @@
 import express from 'express';
+import { rateLimit } from 'express-rate-limit';
 import cors from 'cors';
 import helmet from 'helmet';
 import routes from './routes.js';
@@ -24,7 +25,20 @@ app.use(requestId);
 app.use(pinoHttp({ logger, genReqId: (req) => req.id, customProps: logContext }));
 app.use(observeHttp);
 app.use(helmet());
-app.use(cors());
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 0));
+const origins = (process.env.CORS_ORIGINS || 'http://localhost:5173')
+  .split(',')
+  .map((s) => s.trim());
+app.use(cors({ origin: origins }));
+app.use(
+  '/api/v1/auth',
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 100,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+  }),
+);
 app.use(
   express.json({
     limit: '2mb',
@@ -54,7 +68,7 @@ app.get('/ready', async (_req, res) => {
   }
 });
 app.get('/metrics', metricsHandler);
-setInterval(
+export const metricsTimer = setInterval(
   () =>
     collectQueueDepth([
       workflowQueue,

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
-const credentials = z.record(z.string().max(1000)).optional();
-const headers = z.record(z.string().max(2000)).optional();
+const credentials = z.record(z.string(), z.string().max(1000)).optional();
+const headers = z.record(z.string(), z.string().max(2000)).optional();
 const page = z.coerce.number().int().min(1).default(1);
 const limit = z.coerce.number().int().min(1).max(100).default(25);
 const url = z.string().url();
@@ -17,7 +17,10 @@ export const connectorSchema = z
     isActive: z.boolean().optional(),
   })
   .strict();
-export const connectorPatchSchema = connectorSchema.partial();
+export const connectorPatchSchema = connectorSchema.partial().extend({
+  authType: z.enum(['NONE', 'API_KEY', 'BEARER', 'BASIC']).optional(),
+  defaultHeaders: headers,
+});
 export const testSchema = z
   .object({
     method: z

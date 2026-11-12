@@ -26,6 +26,7 @@ export async function executeNode(node, context, signal, hooks = {}) {
     const controller = new AbortController();
     const onAbort = () => controller.abort();
     signal.addEventListener('abort', onAbort, { once: true });
+    if (signal.aborted) controller.abort();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const step = await hooks.onAttempt?.(attempt);

@@ -6,6 +6,11 @@ function connectionFromEnv() {
   return {
     host: url.hostname,
     port: Number(url.port || 6379),
+    db: Number(url.pathname.slice(1) || 0),
+    maxRetriesPerRequest: 1,
+    connectTimeout: 3000,
+    ...(url.username ? { username: decodeURIComponent(url.username) } : {}),
+    ...(url.protocol === 'rediss:' ? { tls: {} } : {}),
     ...(url.password ? { password: decodeURIComponent(url.password) } : {}),
   };
 }
@@ -58,7 +63,7 @@ export function enqueueWebhookInbound(eventId) {
     'process',
     { eventId },
     {
-      jobId: `inbound:${eventId}`,
+      jobId: `inbound-${eventId}`,
       attempts: 3,
       backoff: { type: 'exponential', delay: 1000 },
       removeOnComplete: true,
@@ -68,7 +73,7 @@ export function enqueueWebhookInbound(eventId) {
 
 export function enqueueWebhookOutbound(data) {
   return webhookOutboundQueue.add('deliver', data, {
-    jobId: `outbound:${data.subscriptionId}:${Date.now()}:${Math.random()}`,
+    jobId: `outbound-${data.subscriptionId}-${Date.now()}-${Math.random()}`,
     attempts: 5,
     backoff: { type: 'exponential', delay: 1000 },
     removeOnComplete: true,
@@ -80,7 +85,7 @@ export function enqueueDocumentProcessing(documentId) {
     'process',
     { documentId },
     {
-      jobId: `document:${documentId}`,
+      jobId: `document-${documentId}`,
       attempts: 3,
       backoff: { type: 'exponential', delay: 2000 },
       timeout: Number(process.env.DOCUMENT_JOB_TIMEOUT_MS || 300000),
@@ -110,4 +115,17 @@ export function scheduleObservabilityJobs() {
       { repeat: { every: 86_400_000 }, jobId: 'retain-observability', removeOnComplete: true },
     ),
   ]);
+}
+
+export const queues = [
+  workflowQueue,
+  approvalQueue,
+  workflowResumeQueue,
+  emailQueue,
+  webhookInboundQueue,
+  webhookOutboundQueue,
+  documentProcessingQueue,
+];
+export async function closeQueues() {
+  await Promise.all(queues.map((queue) => queue.close()));
 }
