@@ -33,7 +33,8 @@
     "format:check": "prettier . --check",
     "format": "prettier . --write",
     "prepare": "husky",
-    "test:handles": "node scripts/test-handles.js"
+    "test:handles": "node scripts/test-handles.js",
+    "postinstall": "npm run db:generate"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",
