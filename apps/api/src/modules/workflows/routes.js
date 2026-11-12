@@ -53,7 +53,8 @@ router.get(
       include: { versions: { orderBy: { version: 'desc' }, take: 1, select: { version: true } } },
     });
     res.json(
-      workflows.map(({ name, description, updatedAt, versions }) => ({
+      workflows.map(({ id, name, description, updatedAt, versions }) => ({
+        id,
         name,
         description,
         updatedAt,

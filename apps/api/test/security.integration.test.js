@@ -220,6 +220,8 @@ test('workflow lifecycle: create, validate, publish, execute idempotently, cance
   };
   const created = await api('post', 'workflows', { name: 'Lifecycle', draft }).expect(201);
   const wid = created.body.id;
+  const listing = await api('get', 'workflows').expect(200);
+  assert.ok(listing.body.some((item) => item.id === wid));
   await api('get', `workflows/${wid}`).expect(200);
   await api('patch', `workflows/${wid}`, { description: 'updated' }).expect(200);
   const published = await api('post', `workflows/${wid}/publish`, {}).expect(201);

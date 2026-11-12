@@ -28,4 +28,7 @@ test('login → dashboard → create workflow', async ({ page, request }) => {
     .click();
   await expect(page).toHaveURL(new RegExp(`/o/${id}/workflows/[^/]+$`));
   await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Smoke workflow');
+  await page.goto(`/o/${id}/workflows`);
+  await page.getByRole('link', { name: 'Smoke workflow', exact: true }).click();
+  await expect(page.getByLabel('Nombre', { exact: true })).toHaveValue('Smoke workflow');
 });
