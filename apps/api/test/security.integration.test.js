@@ -141,6 +141,18 @@ test('login, invalid password, refresh rotation, replay and logout', async () =>
     .send({ email: user.email, password: 'Test-password-123' })
     .expect(200);
   assert.equal(login.body.user.id, user.id);
+  const organizations = await request(app)
+    .get('/api/v1/organizations')
+    .set('Authorization', `Bearer ${login.body.accessToken}`)
+    .expect(200);
+  assert.deepEqual(
+    organizations.body.map((organization) => organization.id),
+    [orgA.id],
+  );
+  await request(app)
+    .get(`/api/v1/orgs/${orgB.id}/workflows`)
+    .set('Authorization', `Bearer ${login.body.accessToken}`)
+    .expect(403);
   const refreshed = await request(app)
     .post('/api/v1/auth/refresh')
     .send({ refreshToken: login.body.refreshToken })
@@ -175,6 +187,18 @@ test('missing, invalid, expired JWT and malformed org ID are rejected', async ()
     .set('Authorization', `Bearer ${token}`)
     .expect(403);
 });
+for (const kind of ['invalid signature', 'expired']) {
+  test(`auth rejects ${kind} token on tenant resources`, async () => {
+    const jwtToken =
+      kind === 'expired'
+        ? jwt.sign({ sub: user.id }, process.env.JWT_SECRET, { expiresIn: -1 })
+        : jwt.sign({ sub: user.id }, 'different-test-secret', { expiresIn: '15m' });
+    await request(app)
+      .get(`/api/v1/orgs/${orgA.id}/workflows`)
+      .set('Authorization', `Bearer ${jwtToken}`)
+      .expect(401);
+  });
+}
 test('resource IDs cannot cross tenant scope, even with membership in both organizations', async () => {
   await prisma.membership.create({
     data: { userId: user.id, organizationId: orgB.id, role: 'ADMIN' },
