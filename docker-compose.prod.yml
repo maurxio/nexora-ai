@@ -47,7 +47,15 @@ services:
     image: ${IMAGE_PREFIX:?Set IMAGE_PREFIX}/api:${IMAGE_TAG:?Set IMAGE_TAG}
     restart: 'no'
     profiles: [tools]
-    command: [npm, exec, prisma, migrate, deploy, --, --schema, apps/api/prisma/schema.prisma]
+    command:
+      [
+        node,
+        node_modules/prisma/build/index.js,
+        migrate,
+        deploy,
+        --schema,
+        apps/api/prisma/schema.prisma,
+      ]
   api:
     <<: *app
     image: ${IMAGE_PREFIX}/api:${IMAGE_TAG}
@@ -60,6 +68,8 @@ services:
     image: ${IMAGE_PREFIX}/notification-worker:${IMAGE_TAG}
   document-worker:
     <<: *app
+    environment:
+      OCR_LANG_PATH: ${OCR_LANG_PATH:-/usr/share/tessdata}
     image: ${IMAGE_PREFIX}/document-worker:${IMAGE_TAG}
     volumes: [uploads:/data/uploads]
   frontend:

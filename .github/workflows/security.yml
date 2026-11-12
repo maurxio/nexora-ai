@@ -49,3 +49,11 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: '1'
           ignore-unfixed: false
+          scanners: vuln
+          format: json
+          output: trivy-${{ matrix.target }}.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-${{ matrix.target }}
+          path: trivy-${{ matrix.target }}.json
