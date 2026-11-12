@@ -10,7 +10,11 @@ export async function closeInfrastructure() {
         await redis.quit();
       } finally {
         // Stop reconnect timers even when QUIT fails.
-        redis.disconnect();
+        if (redis.status !== 'end') {
+          const ended = new Promise((resolve) => redis.once('end', resolve));
+          redis.disconnect();
+          await ended;
+        }
       }
     }
   };
