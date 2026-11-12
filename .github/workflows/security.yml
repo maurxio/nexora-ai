@@ -25,7 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.3 detect --source=/repo --redact --verbose
+      - run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.3 detect --source=/repo --gitleaks-ignore-path=/repo/.gitleaksignore --redact --verbose
   images:
     runs-on: ubuntu-latest
     strategy:
