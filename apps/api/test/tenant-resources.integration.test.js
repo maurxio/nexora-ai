@@ -228,3 +228,49 @@ test('documents: foreign uploads, files, corrections, reprocessing and deletion 
   assert.equal(await prisma.document.count({ where: { empresaId: orgB.id } }), 1);
   assert.equal(await prisma.documentCorrection.count({ where: { documentId: row.id } }), 0);
 });
+
+test('approvals and notifications: foreign decisions and read markers cannot change rows', async () => {
+  const approval = await prisma.approval.create({
+    data: { companyId: orgB.id, requestedById: user.id, title: 'Private approval', payload: {} },
+  });
+  const notification = await prisma.notification.create({
+    data: {
+      companyId: orgB.id,
+      userId: user.id,
+      type: 'GENERIC',
+      title: 'Private notification',
+      body: 'Private',
+      data: {},
+    },
+  });
+  await api('post', orgB.id, 'approvals', {
+    title: 'Unauthorized approval',
+    payload: {},
+    assigneeIds: [user.id],
+  }).expect(403);
+  await denied([
+    ['get', `approvals/${approval.id}`],
+    ...['approve', 'reject', 'cancel'].map((action) => [
+      'post',
+      `approvals/${approval.id}/${action}`,
+      { comment: 'Unauthorized' },
+    ]),
+  ]);
+  for (const orgId of [orgA.id, orgB.id]) {
+    await api('patch', orgId, `notifications/${notification.id}/read`).expect(
+      orgId === orgA.id ? 404 : 403,
+    );
+    await api('post', orgId, 'notifications/read-all', {}).expect(orgId === orgA.id ? 204 : 403);
+  }
+  for (const path of ['approvals', 'notifications'])
+    await hidden(path, [approval.id, notification.id]);
+  await api('get', orgB.id, 'notifications/unread-count').expect(403);
+  const count = await api('get', orgA.id, 'notifications/unread-count').expect(200);
+  assert.equal(count.body.count, 0);
+  assert.deepEqual(await prisma.approval.findUnique({ where: { id: approval.id } }), approval);
+  assert.deepEqual(
+    await prisma.notification.findUnique({ where: { id: notification.id } }),
+    notification,
+  );
+  assert.equal(await prisma.approval.count({ where: { companyId: orgB.id } }), 1);
+});
