@@ -63,8 +63,9 @@ router.post(
     const ext = detected.ext === 'jpeg' ? 'jpg' : detected.ext;
     const storageKey = `${req.orgId}/${new Date().getUTCFullYear()}/${String(new Date().getUTCMonth() + 1).padStart(2, '0')}/${crypto.randomUUID()}.${ext}`;
     await storage.save(storageKey, req.file.buffer);
+    let document;
     try {
-      const document = await prisma.document.create({
+      document = await prisma.document.create({
         data: {
           empresaId: req.orgId,
           uploadedById: req.user.id,
@@ -79,7 +80,10 @@ router.post(
       await enqueueDocumentProcessing(document.id);
       return res.status(202).json({ document: publicDocument(document), duplicate: false });
     } catch (error) {
+      // A rejected enqueue must not leave a duplicate-hash row pointing to a deleted file.
+      if (document) await prisma.document.delete({ where: { id: document.id } });
       await storage.delete(storageKey);
+      if (document) throw httpError(503, 'Cola no disponible');
       throw error;
     }
   }),

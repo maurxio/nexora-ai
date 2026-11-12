@@ -1,3 +1,5 @@
+import { documentProcessingQueue } from '../src/infrastructure/queue.js';
+import { storage } from '../src/modules/documents/storage.js';
 import dns from 'node:dns/promises';
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
@@ -510,4 +512,42 @@ test('auditor can mark personal notifications but cannot mark another user notif
     .expect(404);
   assert.ok((await prisma.notification.findUnique({ where: { id: own.id } })).readAt);
   assert.equal((await prisma.notification.findUnique({ where: { id: other.id } })).readAt, null);
+});
+
+test('document enqueue failure rolls back the row and file so upload can be retried', async () => {
+  const png = await sharp({ create: { width: 9, height: 9, channels: 3, background: '#ffffff' } })
+    .png()
+    .toBuffer();
+  const sha256 = crypto.createHash('sha256').update(png).digest('hex');
+  const save = storage.save.bind(storage);
+  let key;
+  const saveMock = mock.method(storage, 'save', async (storageKey, buffer) => {
+    key = storageKey;
+    await save(storageKey, buffer);
+  });
+  const enqueueMock = mock.method(documentProcessingQueue, 'add', async () => {
+    throw new Error('Queue unavailable fixture');
+  });
+  try {
+    await request(app)
+      .post(`/api/v1/orgs/${orgA.id}/documents`)
+      .set('Authorization', `Bearer ${token}`)
+      .attach('file', png, 'retry.png')
+      .expect(503);
+    assert.equal(await prisma.document.count({ where: { empresaId: orgA.id, sha256 } }), 0);
+    await assert.rejects(
+      () => storage.read(key),
+      (error) => error.code === 'ENOENT',
+    );
+  } finally {
+    saveMock.mock.restore();
+    enqueueMock.mock.restore();
+  }
+  const retried = await request(app)
+    .post(`/api/v1/orgs/${orgA.id}/documents`)
+    .set('Authorization', `Bearer ${token}`)
+    .attach('file', png, 'retry.png')
+    .expect(202);
+  assert.equal(retried.body.duplicate, false);
+  await api('delete', `documents/${retried.body.document.id}`).expect(204);
 });
