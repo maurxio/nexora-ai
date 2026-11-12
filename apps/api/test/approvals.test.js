@@ -44,13 +44,16 @@ before(async () => {
 });
 
 after(async () => {
-  await prisma.organization.deleteMany({
-    where: { id: { in: [company?.id, otherCompany?.id].filter(Boolean) } },
-  });
-  await prisma.user.deleteMany({
-    where: { id: { in: [requester?.id, assignee?.id, outsider?.id].filter(Boolean) } },
-  });
-  await closeInfrastructure();
+  try {
+    await prisma.organization.deleteMany({
+      where: { id: { in: [company?.id, otherCompany?.id].filter(Boolean) } },
+    });
+    await prisma.user.deleteMany({
+      where: { id: { in: [requester?.id, assignee?.id, outsider?.id].filter(Boolean) } },
+    });
+  } finally {
+    await closeInfrastructure();
+  }
 });
 
 test('creates an approval and notifications for each assignee', async () => {

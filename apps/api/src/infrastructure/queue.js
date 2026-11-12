@@ -127,5 +127,9 @@ export const queues = [
   documentProcessingQueue,
 ];
 export async function closeQueues() {
-  await Promise.all(queues.map((queue) => queue.close()));
+  const results = await Promise.allSettled(queues.map(async (queue) => queue.close()));
+  const errors = results
+    .filter((result) => result.status === 'rejected')
+    .map((result) => result.reason);
+  if (errors.length) throw new AggregateError(errors, 'Queue cleanup failed');
 }

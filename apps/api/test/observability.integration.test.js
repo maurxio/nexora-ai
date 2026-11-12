@@ -35,10 +35,21 @@ test('analytics never crosses tenant boundaries', async () => {
 });
 
 after(async () => {
-  if (first && second) {
-    await prisma.executionMetric.deleteMany({ where: { tenantId: { in: [first.id, second.id] } } });
-    await prisma.organization.deleteMany({ where: { id: { in: [first.id, second.id] } } });
+  try {
+    if (first && second) {
+      await prisma.executionMetric.deleteMany({
+        where: { tenantId: { in: [first.id, second.id] } },
+      });
+      await prisma.organization.deleteMany({ where: { id: { in: [first.id, second.id] } } });
+    }
+  } finally {
+    await Promise.allSettled([
+      redis.status === 'wait'
+        ? Promise.resolve(redis.disconnect())
+        : redis.status !== 'end'
+          ? redis.quit()
+          : Promise.resolve(),
+      prisma.$disconnect(),
+    ]);
   }
-  if (redis.status !== 'end') await redis.quit();
-  await prisma.$disconnect();
 });

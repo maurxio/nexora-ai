@@ -3,10 +3,15 @@ import { closeQueues } from './queue.js';
 import { redis } from './redis.js';
 
 export async function closeInfrastructure() {
-  await closeQueues();
-  if (redis.status === 'wait') redis.disconnect();
-  else if (redis.status !== 'end') await redis.quit();
-  await prisma.$disconnect();
+  const closeRedis = async () => {
+    if (redis.status === 'wait') redis.disconnect();
+    else if (redis.status !== 'end') await redis.quit();
+  };
+  const results = await Promise.allSettled([closeQueues(), closeRedis(), prisma.$disconnect()]);
+  const errors = results
+    .filter((result) => result.status === 'rejected')
+    .map((result) => result.reason);
+  if (errors.length) throw new AggregateError(errors, 'Infrastructure cleanup failed');
 }
 
 export function installShutdown(close) {

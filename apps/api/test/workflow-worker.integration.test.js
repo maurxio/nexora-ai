@@ -94,8 +94,11 @@ test('workflow worker executes queued graph with mock AI and shuts down without 
       worker.kill('SIGTERM');
       await exit;
     }
-    if (organization) await prisma.organization.delete({ where: { id: organization.id } });
-    if (user) await prisma.user.delete({ where: { id: user.id } });
-    await closeInfrastructure();
+    try {
+      if (organization) await prisma.organization.delete({ where: { id: organization.id } });
+      if (user) await prisma.user.delete({ where: { id: user.id } });
+    } finally {
+      await closeInfrastructure();
+    }
   }
 });
