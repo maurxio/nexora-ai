@@ -14,7 +14,17 @@ test('one queue cleanup failure still closes the remaining Redis connections', a
   mock.method(queues[0], 'close', async () => {
     throw new Error('Queue cleanup failure fixture');
   });
-  await assert.rejects(() => closeInfrastructure(), AggregateError);
+  mock.method(redis, 'quit', async () => {
+    throw new Error('Redis QUIT failure fixture');
+  });
+  await assert.rejects(
+    () => closeInfrastructure(),
+    (error) => {
+      assert.ok(error instanceof AggregateError);
+      assert.equal(error.errors.length, 2);
+      return true;
+    },
+  );
   assert.equal(redis.status, 'end');
-  for (const queue of queues.slice(1)) assert.equal((await queue.client).status, 'end');
+  for (const queue of queues) assert.equal((await queue.client).status, 'end');
 });

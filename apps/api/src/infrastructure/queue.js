@@ -127,7 +127,16 @@ export const queues = [
   documentProcessingQueue,
 ];
 export async function closeQueues() {
-  const results = await Promise.allSettled(queues.map(async (queue) => queue.close()));
+  const results = await Promise.allSettled(
+    queues.map(async (queue) => {
+      try {
+        await queue.close();
+      } catch (error) {
+        await queue.disconnect();
+        throw error;
+      }
+    }),
+  );
   const errors = results
     .filter((result) => result.status === 'rejected')
     .map((result) => result.reason);

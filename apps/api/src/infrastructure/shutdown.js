@@ -5,7 +5,14 @@ import { redis } from './redis.js';
 export async function closeInfrastructure() {
   const closeRedis = async () => {
     if (redis.status === 'wait') redis.disconnect();
-    else if (redis.status !== 'end') await redis.quit();
+    else if (redis.status !== 'end') {
+      try {
+        await redis.quit();
+      } finally {
+        // Stop reconnect timers even when QUIT fails.
+        redis.disconnect();
+      }
+    }
   };
   const results = await Promise.allSettled([closeQueues(), closeRedis(), prisma.$disconnect()]);
   const errors = results
