@@ -312,3 +312,52 @@ test('AI providers: foreign CRUD, test and default selection are denied', async 
   assert.equal(await prisma.aiProviderConfig.count({ where: { orgId: orgB.id } }), 1);
   assert.equal(await prisma.aiUsage.count({ where: { orgId: orgB.id } }), 0);
 });
+
+test('organizations: foreign details, members and membership mutations are denied', async () => {
+  const membership = await prisma.membership.create({
+    data: { userId: auditor.id, organizationId: orgB.id, role: 'ADMIN' },
+  });
+  const organizationApi = (method, path, body, actor = user) =>
+    request(app)
+      [method](`/api/v1/organizations/${path}`)
+      .set('Authorization', `Bearer ${accessToken(actor.id)}`)
+      .send(body);
+  await organizationApi('get', orgB.id).expect(403);
+  await organizationApi('get', `${orgB.id}/members`).expect(403);
+  await organizationApi('post', `${orgB.id}/members`, { email: user.email, role: 'ADMIN' }).expect(
+    403,
+  );
+  await organizationApi('patch', `${orgB.id}/members/${auditor.id}`, { role: 'OPERATOR' }).expect(
+    403,
+  );
+  await organizationApi(
+    'post',
+    `${orgA.id}/members`,
+    { email: user.email, role: 'ADMIN' },
+    auditor,
+  ).expect(403);
+  await organizationApi(
+    'patch',
+    `${orgA.id}/members/${user.id}`,
+    { role: 'OPERATOR' },
+    auditor,
+  ).expect(403);
+  const listing = await request(app)
+    .get('/api/v1/organizations')
+    .set('Authorization', `Bearer ${accessToken(user.id)}`)
+    .expect(200);
+  assert.deepEqual(
+    listing.body.map((row) => row.id),
+    [orgA.id],
+  );
+  assert.deepEqual(
+    await prisma.membership.findUnique({
+      where: { userId_organizationId: { userId: auditor.id, organizationId: orgB.id } },
+    }),
+    membership,
+  );
+  assert.equal(
+    await prisma.membership.count({ where: { userId: user.id, organizationId: orgB.id } }),
+    0,
+  );
+});
