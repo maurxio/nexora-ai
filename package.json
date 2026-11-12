@@ -23,7 +23,7 @@
     "test:unit": "npm run test:unit -w apps/api && npm test -w packages/workflow-engine && npm test -w apps/web",
     "test:integration": "npm run test:integration -w apps/api",
     "test:e2e": "playwright test",
-    "test:coverage": "c8 --all --include=\"apps/api/src/**/*.js\" --include=\"packages/workflow-engine/src/**/*.js\" --exclude=\"**/server.js\" --exclude=\"**/bootstrap.js\" --reporter=text --reporter=lcov --check-coverage --lines=70 --statements=70 --branches=55 --functions=55 npm run test:backend && npm run test:coverage -w apps/web",
+    "test:coverage": "c8 --all --include=\"apps/api/src/**/*.js\" --include=\"packages/workflow-engine/src/**/*.js\" --include=\"workers/*/src/**/*.js\" --exclude=\"**/server.js\" --exclude=\"**/bootstrap.js\" --reporter=text --reporter=lcov --check-coverage --lines=70 --statements=70 --branches=55 --functions=55 npm run test:backend && npm run test:coverage -w apps/web",
     "test:backend": "npm run test -w apps/api && npm test -w packages/workflow-engine",
     "test:db:up": "docker compose -p nexora-test -f docker-compose.test.yml up -d --wait && npm run db:test:migrate",
     "test:db:down": "docker compose -p nexora-test -f docker-compose.test.yml down -v",
