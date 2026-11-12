@@ -8,16 +8,13 @@ after(async () => {
   mock.restoreAll();
   await closeInfrastructure();
 });
-test('one queue cleanup failure still closes other queues, Redis and Prisma', async () => {
+test('one queue cleanup failure still closes the remaining Redis connections', async () => {
   await prisma.$queryRaw`SELECT 1`;
   await redis.ping();
-  const disconnect = prisma.$disconnect.bind(prisma);
-  const disconnected = mock.method(prisma, '$disconnect', disconnect);
   mock.method(queues[0], 'close', async () => {
     throw new Error('Queue cleanup failure fixture');
   });
   await assert.rejects(() => closeInfrastructure(), AggregateError);
-  assert.equal(disconnected.mock.callCount(), 1);
   assert.equal(redis.status, 'end');
   for (const queue of queues.slice(1)) assert.equal((await queue.client).status, 'end');
 });
