@@ -85,3 +85,19 @@ jobs:
       - run: bash scripts/verify-backup.sh
       - if: always()
         run: npm run test:db:down
+
+  containers:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24 }
+      - name: Build application images
+        run: |
+          for target in api workflow-worker notification-worker document-worker; do
+            docker build -f infrastructure/docker/api.Dockerfile --target "$target" -t "nexora-local/$target:test" .
+          done
+          docker build -f infrastructure/docker/frontend.Dockerfile -t nexora-local/frontend:test .
+      - run: npm run test:containers

@@ -34,7 +34,8 @@
     "format": "prettier . --write",
     "prepare": "husky",
     "test:handles": "node scripts/test-handles.js",
-    "postinstall": "npm run db:generate"
+    "postinstall": "npm run db:generate",
+    "test:containers": "bash scripts/smoke-containers.sh"
   },
   "devDependencies": {
     "@commitlint/cli": "^21.2.4",
