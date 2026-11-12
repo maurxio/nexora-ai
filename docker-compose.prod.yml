@@ -1,0 +1,93 @@
+name: nexora
+x-app: &app
+  env_file: ${APP_ENV_FILE:-.env.production}
+  restart: unless-stopped
+  init: true
+  stop_grace_period: 30s
+  networks: [internal, egress]
+  depends_on:
+    postgres: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  logging:
+    driver: json-file
+    options: { max-size: '10m', max-file: '3' }
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-nexora}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-nexora}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    restart: unless-stopped
+    networks: [internal]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      retries: 20
+  redis:
+    image: redis:7-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD}
+    command:
+      [
+        sh,
+        -c,
+        'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD" --maxmemory-policy noeviction',
+      ]
+    volumes: [redisdata:/data]
+    restart: unless-stopped
+    networks: [internal]
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli ping | grep -q PONG']
+      interval: 5s
+      retries: 20
+  migrate:
+    <<: *app
+    image: ${IMAGE_PREFIX:?Set IMAGE_PREFIX}/api:${IMAGE_TAG:?Set IMAGE_TAG}
+    restart: 'no'
+    profiles: [tools]
+    command: [npm, exec, prisma, migrate, deploy, --, --schema, apps/api/prisma/schema.prisma]
+  api:
+    <<: *app
+    image: ${IMAGE_PREFIX}/api:${IMAGE_TAG}
+    volumes: [uploads:/data/uploads]
+  workflow-worker:
+    <<: *app
+    image: ${IMAGE_PREFIX}/workflow-worker:${IMAGE_TAG}
+  notification-worker:
+    <<: *app
+    image: ${IMAGE_PREFIX}/notification-worker:${IMAGE_TAG}
+  document-worker:
+    <<: *app
+    image: ${IMAGE_PREFIX}/document-worker:${IMAGE_TAG}
+    volumes: [uploads:/data/uploads]
+  frontend:
+    image: ${IMAGE_PREFIX}/frontend:${IMAGE_TAG}
+    restart: unless-stopped
+    networks: [egress]
+    depends_on:
+      api: { condition: service_healthy }
+  proxy:
+    image: caddy:2-alpine
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN}
+    ports: ['80:80', '443:443', '443:443/udp']
+    volumes:
+      [
+        ./infrastructure/caddy/Caddyfile:/etc/caddy/Caddyfile:ro,
+        caddydata:/data,
+        caddyconfig:/config,
+      ]
+    restart: unless-stopped
+    networks: [egress]
+    depends_on: [frontend]
+networks:
+  internal: { internal: true }
+  egress:
+volumes:
+  pgdata:
+  redisdata:
+  uploads:
+  caddydata:
+  caddyconfig:
