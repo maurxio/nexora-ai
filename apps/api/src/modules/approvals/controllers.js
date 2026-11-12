@@ -1,10 +1,23 @@
 import { asyncHandler } from '../../utils.js';
-import { approvalListSchema, createApprovalSchema, decisionSchema, notificationListSchema } from './validators.js';
+import {
+  approvalListSchema,
+  createApprovalSchema,
+  decisionSchema,
+  notificationListSchema,
+} from './validators.js';
 import * as approvalService from './service.js';
 import * as notificationService from '../notifications/service.js';
 
 export const createApproval = asyncHandler(async (req, res) => {
-  res.status(201).json(await approvalService.createApproval(req.orgId, req.user.id, createApprovalSchema.parse(req.body)));
+  res
+    .status(201)
+    .json(
+      await approvalService.createApproval(
+        req.orgId,
+        req.user.id,
+        createApprovalSchema.parse(req.body),
+      ),
+    );
 });
 
 export const listApprovals = asyncHandler(async (req, res) => {
@@ -17,12 +30,28 @@ export const getApproval = asyncHandler(async (req, res) => {
 
 export const approve = asyncHandler(async (req, res) => {
   const input = decisionSchema.parse(req.body);
-  res.json(await approvalService.decideApproval(req.orgId, req.user.id, req.params.id, 'APPROVED', input.comment));
+  res.json(
+    await approvalService.decideApproval(
+      req.orgId,
+      req.user.id,
+      req.params.id,
+      'APPROVED',
+      input.comment,
+    ),
+  );
 });
 
 export const reject = asyncHandler(async (req, res) => {
   const input = decisionSchema.parse(req.body);
-  res.json(await approvalService.decideApproval(req.orgId, req.user.id, req.params.id, 'REJECTED', input.comment));
+  res.json(
+    await approvalService.decideApproval(
+      req.orgId,
+      req.user.id,
+      req.params.id,
+      'REJECTED',
+      input.comment,
+    ),
+  );
 });
 
 export const cancel = asyncHandler(async (req, res) => {
@@ -30,7 +59,13 @@ export const cancel = asyncHandler(async (req, res) => {
 });
 
 export const listNotifications = asyncHandler(async (req, res) => {
-  res.json(await notificationService.listNotifications(req.orgId, req.user.id, notificationListSchema.parse(req.query)));
+  res.json(
+    await notificationService.listNotifications(
+      req.orgId,
+      req.user.id,
+      notificationListSchema.parse(req.query),
+    ),
+  );
 });
 
 export const markNotificationRead = asyncHandler(async (req, res) => {

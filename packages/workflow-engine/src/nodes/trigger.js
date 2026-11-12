@@ -1,1 +1,3 @@
-export async function execute(config, context) { return context.input; }
+export async function execute(config, context) {
+  return context.input;
+}

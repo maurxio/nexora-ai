@@ -16,7 +16,10 @@ export { executionOrder, shouldRun } from './graph.js';
 export async function executeNode(node, context, signal, hooks = {}) {
   const executor = executors[node.type];
   const retries = Math.min(MAX_RETRIES, Math.max(0, Number(node.config?.retries || 0)));
-  const timeoutMs = Math.min(MAX_NODE_TIMEOUT_MS, Math.max(1, Number(node.config?.timeoutMs || DEFAULT_NODE_TIMEOUT_MS)));
+  const timeoutMs = Math.min(
+    MAX_NODE_TIMEOUT_MS,
+    Math.max(1, Number(node.config?.timeoutMs || DEFAULT_NODE_TIMEOUT_MS)),
+  );
   let attempt = 0;
   while (true) {
     attempt += 1;
@@ -26,14 +29,17 @@ export async function executeNode(node, context, signal, hooks = {}) {
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
       const step = await hooks.onAttempt?.(attempt);
-      const output = await executor.execute(node.config || {}, context, { signal: controller.signal });
+      const output = await executor.execute(node.config || {}, context, {
+        signal: controller.signal,
+      });
       await hooks.onSuccess?.(step, output, attempt);
       return { output, attempt };
     } catch (error) {
       await hooks.onFailure?.(error, attempt);
       const retryable = error.retryable === true;
-      if (!retryable || attempt > retries || signal.aborted) throw Object.assign(error, { attempt });
-      await new Promise((resolve) => setTimeout(resolve, 200 * (2 ** (attempt - 1))));
+      if (!retryable || attempt > retries || signal.aborted)
+        throw Object.assign(error, { attempt });
+      await new Promise((resolve) => setTimeout(resolve, 200 * 2 ** (attempt - 1)));
     } finally {
       clearTimeout(timer);
       signal.removeEventListener('abort', onAbort);
@@ -42,5 +48,8 @@ export async function executeNode(node, context, signal, hooks = {}) {
 }
 
 export function plan(definition, results) {
-  return executionOrder(definition).map((id) => ({ node: definition.nodes.find((node) => node.id === id), run: shouldRun(id, definition, results) }));
+  return executionOrder(definition).map((id) => ({
+    node: definition.nodes.find((node) => node.id === id),
+    run: shouldRun(id, definition, results),
+  }));
 }

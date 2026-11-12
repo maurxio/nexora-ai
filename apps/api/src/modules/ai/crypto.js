@@ -12,7 +12,12 @@ export function encryptApiKey(value) {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', key(), iv);
   const ciphertext = Buffer.concat([cipher.update(value, 'utf8'), cipher.final()]);
-  return [VERSION, iv.toString('base64'), cipher.getAuthTag().toString('base64'), ciphertext.toString('base64')].join('.');
+  return [
+    VERSION,
+    iv.toString('base64'),
+    cipher.getAuthTag().toString('base64'),
+    ciphertext.toString('base64'),
+  ].join('.');
 }
 
 export function decryptApiKey(value) {

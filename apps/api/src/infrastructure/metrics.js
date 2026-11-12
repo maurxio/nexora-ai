@@ -35,10 +35,13 @@ export const aiCallCounter = new client.Counter({
 });
 
 export async function collectQueueDepth(queues) {
-  await Promise.all(queues.map(async (queue) => {
-    const counts = await queue.getJobCounts('waiting', 'active', 'failed', 'delayed');
-    for (const [state, count] of Object.entries(counts)) queueDepth.labels(queue.name, state).set(count);
-  }));
+  await Promise.all(
+    queues.map(async (queue) => {
+      const counts = await queue.getJobCounts('waiting', 'active', 'failed', 'delayed');
+      for (const [state, count] of Object.entries(counts))
+        queueDepth.labels(queue.name, state).set(count);
+    }),
+  );
 }
 
 export async function metricsHandler(req, res) {
@@ -54,7 +57,9 @@ export function observeHttp(req, res, next) {
   const started = process.hrtime.bigint();
   res.on('finish', () => {
     const route = req.route?.path ? `${req.baseUrl || ''}${req.route.path}` : 'unmatched';
-    httpDuration.labels(req.method, route, String(res.statusCode)).observe(Number(process.hrtime.bigint() - started) / 1e9);
+    httpDuration
+      .labels(req.method, route, String(res.statusCode))
+      .observe(Number(process.hrtime.bigint() - started) / 1e9);
   });
   next();
 }

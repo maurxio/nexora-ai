@@ -9,12 +9,22 @@ let first;
 let second;
 
 test('analytics never crosses tenant boundaries', async () => {
-  first = await prisma.organization.create({ data: { name: `First ${suffix}`, slug: `first-${suffix}` } });
-  second = await prisma.organization.create({ data: { name: `Second ${suffix}`, slug: `second-${suffix}` } });
+  first = await prisma.organization.create({
+    data: { name: `First ${suffix}`, slug: `first-${suffix}` },
+  });
+  second = await prisma.organization.create({
+    data: { name: `Second ${suffix}`, slug: `second-${suffix}` },
+  });
   await prisma.executionMetric.createMany({
     data: [
       { tenantId: first.id, type: 'WORKFLOW', status: 'SUCCESS', durationMs: 20 },
-      { tenantId: second.id, type: 'WORKFLOW', status: 'ERROR', durationMs: 900, errorCode: 'OTHER_TENANT' },
+      {
+        tenantId: second.id,
+        type: 'WORKFLOW',
+        status: 'ERROR',
+        durationMs: 900,
+        errorCode: 'OTHER_TENANT',
+      },
     ],
   });
   const firstOverview = await overview(first.id, {});

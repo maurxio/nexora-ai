@@ -4,7 +4,10 @@ import { encryptApiKey } from './crypto.js';
 import { assertSafeUrl } from './ssrf.js';
 import { createProvider } from './providers.js';
 
-const publicConfig = ({ apiKeyEncrypted, ...config }) => ({ ...config, hasApiKey: Boolean(apiKeyEncrypted) });
+const publicConfig = ({ apiKeyEncrypted, ...config }) => ({
+  ...config,
+  hasApiKey: Boolean(apiKeyEncrypted),
+});
 const defaults = {
   openai_compatible: 'https://api.openai.com/v1',
   anthropic: 'https://api.anthropic.com',
@@ -13,7 +16,10 @@ const defaults = {
 };
 
 async function getPolicy(orgId) {
-  const organization = await prisma.organization.findUnique({ where: { id: orgId }, select: { allowPrivateHosts: true } });
+  const organization = await prisma.organization.findUnique({
+    where: { id: orgId },
+    select: { allowPrivateHosts: true },
+  });
   return { allowPrivateHosts: organization?.allowPrivateHosts === true };
 }
 
@@ -29,13 +35,25 @@ export async function createConfig(orgId, userId, input) {
   const apiKeyEncrypted = input.apiKey ? encryptApiKey(input.apiKey) : null;
   const { apiKey, ...fields } = input;
   const item = await prisma.aiProviderConfig.create({
-    data: { ...fields, orgId, createdById: userId, baseUrl, apiKeyEncrypted, apiKeyLast4: apiKey ? apiKey.slice(-4) : null },
+    data: {
+      ...fields,
+      orgId,
+      createdById: userId,
+      baseUrl,
+      apiKeyEncrypted,
+      apiKeyLast4: apiKey ? apiKey.slice(-4) : null,
+    },
   });
   return publicConfig(item);
 }
 
 export async function listConfigs(orgId) {
-  return (await prisma.aiProviderConfig.findMany({ where: { orgId }, orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }] })).map(publicConfig);
+  return (
+    await prisma.aiProviderConfig.findMany({
+      where: { orgId },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+    })
+  ).map(publicConfig);
 }
 
 export async function getConfig(orgId, id) {
@@ -47,7 +65,10 @@ export async function getConfig(orgId, id) {
 export async function updateConfig(orgId, id, input) {
   const existing = await getConfig(orgId, id);
   const provider = input.provider || existing.provider;
-  const baseUrl = input.baseUrl === undefined && input.provider === undefined ? existing.baseUrl : await validateBaseUrl(orgId, provider, input.baseUrl || defaults[provider]);
+  const baseUrl =
+    input.baseUrl === undefined && input.provider === undefined
+      ? existing.baseUrl
+      : await validateBaseUrl(orgId, provider, input.baseUrl || defaults[provider]);
   const data = { ...input, baseUrl };
   delete data.apiKey;
   if (input.apiKey !== undefined) {
@@ -74,7 +95,9 @@ export async function setDefault(orgId, id) {
 export async function resolveProvider(orgId, configId = null) {
   const config = configId
     ? await prisma.aiProviderConfig.findFirst({ where: { id: configId, orgId, status: 'ACTIVE' } })
-    : await prisma.aiProviderConfig.findFirst({ where: { orgId, status: 'ACTIVE', isDefault: true } });
+    : await prisma.aiProviderConfig.findFirst({
+        where: { orgId, status: 'ACTIVE', isDefault: true },
+      });
   if (!config) {
     const error = httpError(409, 'La organización no tiene un proveedor de IA activo');
     error.code = 'AI_NOT_CONFIGURED';
@@ -86,9 +109,15 @@ export async function resolveProvider(orgId, configId = null) {
 export async function testConfig(orgId, id) {
   const config = await getConfig(orgId, id);
   const provider = createProvider(config, await getPolicy(orgId));
-  return provider.generate({ messages: [{ role: 'user', content: 'ping' }], signal: AbortSignal.timeout(10000) }).then(() => ({ ok: true }));
+  return provider
+    .generate({ messages: [{ role: 'user', content: 'ping' }], signal: AbortSignal.timeout(10000) })
+    .then(() => ({ ok: true }));
 }
 
 export async function updatePrivateHosts(orgId, enabled) {
-  return prisma.organization.update({ where: { id: orgId }, data: { allowPrivateHosts: enabled }, select: { allowPrivateHosts: true } });
+  return prisma.organization.update({
+    where: { id: orgId },
+    data: { allowPrivateHosts: enabled },
+    select: { allowPrivateHosts: true },
+  });
 }

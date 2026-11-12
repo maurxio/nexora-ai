@@ -5,7 +5,10 @@ export function extractFields(docType, text) {
   if (docType === 'INVOICE') {
     const data = {
       invoiceNumber: match(text, /(?:factura|invoice)\s*(?:n[roº.]?|#)?\s*[:\-]?\s*([A-Z0-9-]+)/i),
-      issueDate: match(text, /(?:fecha|date)\s*[:\-]?\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})/i),
+      issueDate: match(
+        text,
+        /(?:fecha|date)\s*[:\-]?\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[/-]\d{1,2}[/-]\d{4})/i,
+      ),
       issuerNit: match(text, /\bNIT\s*[:\-]?\s*([\d.\- ]+-?\d)\b/i),
       issuerName: match(text, /(?:raz[oó]n social|emisor)\s*[:\-]?\s*([^\n]+)/i),
       subtotal: normalizeColombianNumber(match(text, /subtotal\s*[:\-]?\s*\$?\s*([\d.,]+)/i)),
@@ -19,10 +22,14 @@ export function extractFields(docType, text) {
     }
     return data;
   }
-  if (docType === 'ID_DOCUMENT') return {
-    documentNumber: match(text, /(?:documento|c[ée]dula|identificaci[oó]n)\s*(?:n[roº.]?)?\s*[:\-]?\s*([0-9A-Z-]+)/i),
-    names: match(text, /(?:nombres?|name)\s*[:\-]?\s*([^\n]+)/i),
-    birthDate: match(text, /(?:fecha de nacimiento|birth date)\s*[:\-]?\s*(\d{4}-\d{2}-\d{2})/i),
-  };
+  if (docType === 'ID_DOCUMENT')
+    return {
+      documentNumber: match(
+        text,
+        /(?:documento|c[ée]dula|identificaci[oó]n)\s*(?:n[roº.]?)?\s*[:\-]?\s*([0-9A-Z-]+)/i,
+      ),
+      names: match(text, /(?:nombres?|name)\s*[:\-]?\s*([^\n]+)/i),
+      birthDate: match(text, /(?:fecha de nacimiento|birth date)\s*[:\-]?\s*(\d{4}-\d{2}-\d{2})/i),
+    };
   return { textLength: text.length };
 }

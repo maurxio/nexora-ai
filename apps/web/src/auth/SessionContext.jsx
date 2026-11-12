@@ -23,7 +23,9 @@ export function SessionProvider({ children }) {
       if (!cancelado) setLoading(false);
     };
     restore();
-    return () => { cancelado = true; };
+    return () => {
+      cancelado = true;
+    };
   }, []);
 
   const signIn = (data) => {
@@ -31,7 +33,12 @@ export function SessionProvider({ children }) {
     setUser(data.user);
   };
   const signOut = async () => {
-    try { await authApi.logout(); } finally { clearSession(); setUser(null); }
+    try {
+      await authApi.logout();
+    } finally {
+      clearSession();
+      setUser(null);
+    }
   };
 
   const value = useMemo(() => ({ user, loading, signIn, signOut }), [user, loading]);

@@ -1,7 +1,9 @@
 export function executionOrder(definition) {
   const incoming = new Map(definition.nodes.map((node) => [node.id, 0]));
   for (const edge of definition.edges) incoming.set(edge.to, incoming.get(edge.to) + 1);
-  const queue = definition.nodes.filter((node) => incoming.get(node.id) === 0).map((node) => node.id);
+  const queue = definition.nodes
+    .filter((node) => incoming.get(node.id) === 0)
+    .map((node) => node.id);
   const order = [];
   while (queue.length) {
     const id = queue.shift();
@@ -23,5 +25,8 @@ export function isEdgeActive(edge, results) {
 
 export function shouldRun(nodeId, definition, results) {
   const node = definition.nodes.find((item) => item.id === nodeId);
-  return node?.type === 'trigger' || definition.edges.some((edge) => edge.to === nodeId && isEdgeActive(edge, results));
+  return (
+    node?.type === 'trigger' ||
+    definition.edges.some((edge) => edge.to === nodeId && isEdgeActive(edge, results))
+  );
 }

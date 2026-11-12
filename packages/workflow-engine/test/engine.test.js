@@ -13,16 +13,42 @@ test('resuelve plantillas conservando tipos e interpolando texto', () => {
 });
 
 test('evalúa operadores y rechaza expresiones inválidas', () => {
-  for (const [operator, expected] of [['>', true], ['>=', true], ['<', false], ['<=', false], ['==', false], ['!=', true]]) {
+  for (const [operator, expected] of [
+    ['>', true],
+    ['>=', true],
+    ['<', false],
+    ['<=', false],
+    ['==', false],
+    ['!=', true],
+  ]) {
     assert.equal(evaluateCondition(`input.total ${operator} 5`, context), expected);
   }
   assert.throws(() => evaluateCondition('input.total ??? 5', context), /no es válida/);
 });
 
 test('calcula ramas y nodos omitidos', () => {
-  const definition = { nodes: [{ id: 'trigger', type: 'trigger' }, { id: 'check', type: 'condition' }, { id: 'yes', type: 'transform' }, { id: 'no', type: 'transform' }, { id: 'both', type: 'transform' }], edges: [{ from: 'trigger', to: 'check' }, { from: 'check', to: 'yes', condition: 'true' }, { from: 'check', to: 'no', condition: 'false' }, { from: 'yes', to: 'both' }, { from: 'no', to: 'both' }] };
+  const definition = {
+    nodes: [
+      { id: 'trigger', type: 'trigger' },
+      { id: 'check', type: 'condition' },
+      { id: 'yes', type: 'transform' },
+      { id: 'no', type: 'transform' },
+      { id: 'both', type: 'transform' },
+    ],
+    edges: [
+      { from: 'trigger', to: 'check' },
+      { from: 'check', to: 'yes', condition: 'true' },
+      { from: 'check', to: 'no', condition: 'false' },
+      { from: 'yes', to: 'both' },
+      { from: 'no', to: 'both' },
+    ],
+  };
   assert.deepEqual(executionOrder(definition), ['trigger', 'check', 'yes', 'no', 'both']);
-  const results = { trigger: { status: 'SUCCEEDED' }, check: { status: 'SUCCEEDED', output: { result: true } }, yes: { status: 'SUCCEEDED' } };
+  const results = {
+    trigger: { status: 'SUCCEEDED' },
+    check: { status: 'SUCCEEDED', output: { result: true } },
+    yes: { status: 'SUCCEEDED' },
+  };
   assert.equal(shouldRun('yes', definition, results), true);
   assert.equal(shouldRun('no', definition, results), false);
   assert.equal(shouldRun('both', definition, results), true);
@@ -30,6 +56,9 @@ test('calcula ramas y nodos omitidos', () => {
 
 test('bloquea destinos SSRF', async () => {
   for (const url of ['http://169.254.169.254', 'http://10.0.0.1', 'http://127.0.0.1']) {
-    await assert.rejects(() => executeHttp({ url }, context, { signal: new AbortController().signal }), /Destino bloqueado/);
+    await assert.rejects(
+      () => executeHttp({ url }, context, { signal: new AbortController().signal }),
+      /Destino bloqueado/,
+    );
   }
 });

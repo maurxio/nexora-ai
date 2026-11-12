@@ -37,9 +37,24 @@ scoped.use('/analytics', analytics);
 scoped.use('/', approvals);
 scoped.use('/', audit);
 scoped.use('/ai/providers', aiProviders);
-scoped.get('/analytics/overview', asyncHandler(async (req, res) => res.json(await analyticsService.overview(req.orgId, analyticsQuery.parse(req.query)))));
-scoped.get('/analytics/timeseries', asyncHandler(async (req, res) => res.json(await analyticsService.timeseries(req.orgId, analyticsQuery.parse(req.query)))));
-scoped.get('/analytics/top-errors', asyncHandler(async (req, res) => res.json(await analyticsService.topErrors(req.orgId, analyticsQuery.parse(req.query)))));
+scoped.get(
+  '/analytics/overview',
+  asyncHandler(async (req, res) =>
+    res.json(await analyticsService.overview(req.orgId, analyticsQuery.parse(req.query))),
+  ),
+);
+scoped.get(
+  '/analytics/timeseries',
+  asyncHandler(async (req, res) =>
+    res.json(await analyticsService.timeseries(req.orgId, analyticsQuery.parse(req.query))),
+  ),
+);
+scoped.get(
+  '/analytics/top-errors',
+  asyncHandler(async (req, res) =>
+    res.json(await analyticsService.topErrors(req.orgId, analyticsQuery.parse(req.query))),
+  ),
+);
 router.use('/orgs/:orgId', authenticate, tenant, scoped);
 
 export default router;

@@ -14,11 +14,9 @@ export function verifyPassword(password, passwordHash) {
 }
 
 export function accessToken(userId) {
-  return jwt.sign(
-    { sub: userId },
-    process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRES_IN || '15m' },
-  );
+  return jwt.sign({ sub: userId }, process.env.JWT_SECRET, {
+    expiresIn: process.env.JWT_EXPIRES_IN || '15m',
+  });
 }
 
 export function refreshTokenHash(refreshToken) {

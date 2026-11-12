@@ -30,7 +30,13 @@ export class OcrEngine {
 }
 
 async function preprocess(buffer) {
-  return sharp(buffer).grayscale().normalize().resize({ width: 2500, withoutEnlargement: false }).sharpen().png().toBuffer();
+  return sharp(buffer)
+    .grayscale()
+    .normalize()
+    .resize({ width: 2500, withoutEnlargement: false })
+    .sharpen()
+    .png()
+    .toBuffer();
 }
 
 async function pdfOcr(buffer, tempDir, engine) {
@@ -38,18 +44,35 @@ async function pdfOcr(buffer, tempDir, engine) {
   await fs.writeFile(source, buffer);
   const prefix = path.join(tempDir, 'page');
   await execFileAsync('pdftoppm', ['-png', '-r', '300', source, prefix]);
-  const files = (await fs.readdir(tempDir)).filter((file) => file.startsWith('page-') && file.endsWith('.png')).sort();
-  const results = await Promise.all(files.map(async (file) => engine.recognize(await preprocess(await fs.readFile(path.join(tempDir, file))))));
-  return { text: results.map((item) => item.text).join('\n'), confidence: results.length ? results.reduce((sum, item) => sum + item.confidence, 0) / results.length : 0, pageCount: files.length };
+  const files = (await fs.readdir(tempDir))
+    .filter((file) => file.startsWith('page-') && file.endsWith('.png'))
+    .sort();
+  const results = await Promise.all(
+    files.map(async (file) =>
+      engine.recognize(await preprocess(await fs.readFile(path.join(tempDir, file)))),
+    ),
+  );
+  return {
+    text: results.map((item) => item.text).join('\n'),
+    confidence: results.length
+      ? results.reduce((sum, item) => sum + item.confidence, 0) / results.length
+      : 0,
+    pageCount: files.length,
+  };
 }
 
 async function extractText(buffer, mimeType, engine) {
   if (mimeType === 'application/pdf') {
     const parsed = await pdfParse(buffer);
     const pageCount = parsed.numpages || 1;
-    if (parsed.text.trim().length >= 50 * pageCount) return { text: parsed.text, confidence: 100, pageCount };
+    if (parsed.text.trim().length >= 50 * pageCount)
+      return { text: parsed.text, confidence: 100, pageCount };
     const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'nexora-doc-'));
-    try { return await pdfOcr(buffer, tempDir, engine); } finally { await fs.rm(tempDir, { recursive: true, force: true }); }
+    try {
+      return await pdfOcr(buffer, tempDir, engine);
+    } finally {
+      await fs.rm(tempDir, { recursive: true, force: true });
+    }
   }
   const result = await engine.recognize(await preprocess(buffer));
   return { ...result, pageCount: 1 };
@@ -59,7 +82,13 @@ export async function processDocument(documentId) {
   const started = Date.now();
   const document = await prisma.document.findUnique({ where: { id: documentId } });
   if (!document) return;
-  const claimed = await prisma.document.updateMany({ where: { id: documentId, status: { in: ['QUEUED', 'PROCESSING', 'EXTRACTED', 'NEEDS_REVIEW', 'FAILED'] } }, data: { status: 'PROCESSING', errorMessage: null } });
+  const claimed = await prisma.document.updateMany({
+    where: {
+      id: documentId,
+      status: { in: ['QUEUED', 'PROCESSING', 'EXTRACTED', 'NEEDS_REVIEW', 'FAILED'] },
+    },
+    data: { status: 'PROCESSING', errorMessage: null },
+  });
   if (!claimed.count) return;
   try {
     const buffer = await storage.read(document.storageKey);
@@ -68,19 +97,64 @@ export async function processDocument(documentId) {
     const data = extractFields(docType, extracted.text);
     const validations = validateExtractedData(docType, data);
     const hasErrors = validations.some((item) => !item.passed && item.severity === 'ERROR');
-    const status = !hasErrors && extracted.confidence >= Number(process.env.OCR_MIN_CONFIDENCE || 70) ? 'VALIDATED' : 'NEEDS_REVIEW';
+    const status =
+      !hasErrors && extracted.confidence >= Number(process.env.OCR_MIN_CONFIDENCE || 70)
+        ? 'VALIDATED'
+        : 'NEEDS_REVIEW';
     await prisma.$transaction([
       prisma.documentValidation.deleteMany({ where: { documentId } }),
-      prisma.document.update({ where: { id: documentId }, data: { status, docType, pageCount: extracted.pageCount, ocrText: extracted.text, ocrConfidence: extracted.confidence, extractedData: data, processedAt: new Date(), errorMessage: null } }),
-      prisma.documentValidation.createMany({ data: validations.map((item) => ({ ...item, documentId })) }),
+      prisma.document.update({
+        where: { id: documentId },
+        data: {
+          status,
+          docType,
+          pageCount: extracted.pageCount,
+          ocrText: extracted.text,
+          ocrConfidence: extracted.confidence,
+          extractedData: data,
+          processedAt: new Date(),
+          errorMessage: null,
+        },
+      }),
+      prisma.documentValidation.createMany({
+        data: validations.map((item) => ({ ...item, documentId })),
+      }),
     ]);
-    await recordExecutionMetric({ tenantId: document.empresaId, type: 'DOCUMENT', referenceId: documentId, status: 'SUCCESS', durationMs: Date.now() - started });
-    await auditService.record({ tenantId: document.empresaId, action: 'DOCUMENT_PROCESSED', entity: 'Document', entityId: documentId, metadata: { status } });
+    await recordExecutionMetric({
+      tenantId: document.empresaId,
+      type: 'DOCUMENT',
+      referenceId: documentId,
+      status: 'SUCCESS',
+      durationMs: Date.now() - started,
+    });
+    await auditService.record({
+      tenantId: document.empresaId,
+      action: 'DOCUMENT_PROCESSED',
+      entity: 'Document',
+      entityId: documentId,
+      metadata: { status },
+    });
   } catch (error) {
-    await prisma.document.update({ where: { id: documentId }, data: { status: 'FAILED', errorMessage: error.message.slice(0, 1000), processedAt: new Date() } });
-    await recordExecutionMetric({ tenantId: document.empresaId, type: 'DOCUMENT', referenceId: documentId, status: 'ERROR', durationMs: Date.now() - started, errorCode: error.code || error.name || 'DOCUMENT_ERROR' });
+    await prisma.document.update({
+      where: { id: documentId },
+      data: {
+        status: 'FAILED',
+        errorMessage: error.message.slice(0, 1000),
+        processedAt: new Date(),
+      },
+    });
+    await recordExecutionMetric({
+      tenantId: document.empresaId,
+      type: 'DOCUMENT',
+      referenceId: documentId,
+      status: 'ERROR',
+      durationMs: Date.now() - started,
+      errorCode: error.code || error.name || 'DOCUMENT_ERROR',
+    });
     throw error;
   }
 }
 
-export function hashBuffer(buffer) { return crypto.createHash('sha256').update(buffer).digest('hex'); }
+export function hashBuffer(buffer) {
+  return crypto.createHash('sha256').update(buffer).digest('hex');
+}

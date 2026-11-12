@@ -26,7 +26,8 @@ function agentId(req) {
 }
 
 function validateAgentId(req, res, next) {
-  if (!idSchema.safeParse(req.params.id).success) return res.status(404).json({ error: 'Agente no encontrado' });
+  if (!idSchema.safeParse(req.params.id).success)
+    return res.status(404).json({ error: 'Agente no encontrado' });
   next();
 }
 
@@ -44,80 +45,110 @@ async function findAgent(req) {
 }
 
 router.get('/tools/catalog', (_req, res) => {
-  res.json(listToolNames().map((name) => {
-    const tool = getTool(name);
-    return { name: tool.name, description: tool.description };
-  }));
+  res.json(
+    listToolNames().map((name) => {
+      const tool = getTool(name);
+      return { name: tool.name, description: tool.description };
+    }),
+  );
 });
 
-router.get('/', asyncHandler(async (req, res) => {
-  const agents = await prisma.agent.findMany({
-    where: { organizationId: req.orgId },
-    include: { tools: true },
-    orderBy: { createdAt: 'asc' },
-  });
-  res.json(agents);
-}));
-
-router.post('/', requireRole('ADMIN', 'OPERATOR'), asyncHandler(async (req, res) => {
-  const input = createAgentSchema.parse(req.body);
-  try {
-    const agent = await prisma.agent.create({
-      data: { ...input, organizationId: req.orgId },
+router.get(
+  '/',
+  asyncHandler(async (req, res) => {
+    const agents = await prisma.agent.findMany({
+      where: { organizationId: req.orgId },
       include: { tools: true },
+      orderBy: { createdAt: 'asc' },
     });
-    res.status(201).json(agent);
-  } catch (error) {
-    if (error.code === 'P2002') throw httpError(409, 'Ya existe un agente con ese nombre');
-    throw error;
-  }
-}));
+    res.json(agents);
+  }),
+);
 
-router.get('/:id', validateAgentId, asyncHandler(async (req, res) => {
-  res.json(await findAgent(req));
-}));
-
-router.patch('/:id', validateAgentId, requireRole('ADMIN', 'OPERATOR'), asyncHandler(async (req, res) => {
-  const input = updateAgentSchema.parse(req.body);
-  const existing = await findAgent(req);
-  try {
-    const agent = await prisma.agent.update({
-      where: { id: existing.id },
-      data: input,
-      include: { tools: true },
-    });
-    res.json(agent);
-  } catch (error) {
-    if (error.code === 'P2002') throw httpError(409, 'Ya existe un agente con ese nombre');
-    throw error;
-  }
-}));
-
-router.delete('/:id', validateAgentId, requireRole('ADMIN'), asyncHandler(async (req, res) => {
-  const existing = await findAgent(req);
-  await prisma.agent.delete({ where: { id: existing.id } });
-  res.status(204).send();
-}));
-
-router.put('/:id/tools', validateAgentId, requireRole('ADMIN', 'OPERATOR'), asyncHandler(async (req, res) => {
-  const input = toolsSchema.parse(req.body);
-  const existing = await findAgent(req);
-  const invalidTools = [...new Set(input.tools)].filter((name) => !getTool(name));
-  if (invalidTools.length) {
-    throw httpError(400, `Herramientas inválidas: ${invalidTools.join(', ')}`);
-  }
-
-  await prisma.$transaction(async (transaction) => {
-    await transaction.agentTool.deleteMany({ where: { agentId: existing.id } });
-    if (input.tools.length) {
-      await transaction.agentTool.createMany({
-        data: [...new Set(input.tools)].map((toolName) => ({ agentId: existing.id, toolName })),
+router.post(
+  '/',
+  requireRole('ADMIN', 'OPERATOR'),
+  asyncHandler(async (req, res) => {
+    const input = createAgentSchema.parse(req.body);
+    try {
+      const agent = await prisma.agent.create({
+        data: { ...input, organizationId: req.orgId },
+        include: { tools: true },
       });
+      res.status(201).json(agent);
+    } catch (error) {
+      if (error.code === 'P2002') throw httpError(409, 'Ya existe un agente con ese nombre');
+      throw error;
     }
-  });
-  res.json(await findAgent(req));
-}));
+  }),
+);
 
-router.post('/:id/run', validateAgentId, (_req, res) => res.status(501).json({ error: 'Pendiente' }));
+router.get(
+  '/:id',
+  validateAgentId,
+  asyncHandler(async (req, res) => {
+    res.json(await findAgent(req));
+  }),
+);
+
+router.patch(
+  '/:id',
+  validateAgentId,
+  requireRole('ADMIN', 'OPERATOR'),
+  asyncHandler(async (req, res) => {
+    const input = updateAgentSchema.parse(req.body);
+    const existing = await findAgent(req);
+    try {
+      const agent = await prisma.agent.update({
+        where: { id: existing.id },
+        data: input,
+        include: { tools: true },
+      });
+      res.json(agent);
+    } catch (error) {
+      if (error.code === 'P2002') throw httpError(409, 'Ya existe un agente con ese nombre');
+      throw error;
+    }
+  }),
+);
+
+router.delete(
+  '/:id',
+  validateAgentId,
+  requireRole('ADMIN'),
+  asyncHandler(async (req, res) => {
+    const existing = await findAgent(req);
+    await prisma.agent.delete({ where: { id: existing.id } });
+    res.status(204).send();
+  }),
+);
+
+router.put(
+  '/:id/tools',
+  validateAgentId,
+  requireRole('ADMIN', 'OPERATOR'),
+  asyncHandler(async (req, res) => {
+    const input = toolsSchema.parse(req.body);
+    const existing = await findAgent(req);
+    const invalidTools = [...new Set(input.tools)].filter((name) => !getTool(name));
+    if (invalidTools.length) {
+      throw httpError(400, `Herramientas inválidas: ${invalidTools.join(', ')}`);
+    }
+
+    await prisma.$transaction(async (transaction) => {
+      await transaction.agentTool.deleteMany({ where: { agentId: existing.id } });
+      if (input.tools.length) {
+        await transaction.agentTool.createMany({
+          data: [...new Set(input.tools)].map((toolName) => ({ agentId: existing.id, toolName })),
+        });
+      }
+    });
+    res.json(await findAgent(req));
+  }),
+);
+
+router.post('/:id/run', validateAgentId, (_req, res) =>
+  res.status(501).json({ error: 'Pendiente' }),
+);
 
 export default router;

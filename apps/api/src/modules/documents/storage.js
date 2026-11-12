@@ -2,9 +2,15 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 export class StorageProvider {
-  async save(_key, _buffer) { throw new Error('StorageProvider.save no implementado'); }
-  async read(_key) { throw new Error('StorageProvider.read no implementado'); }
-  async delete(_key) { throw new Error('StorageProvider.delete no implementado'); }
+  async save(_key, _buffer) {
+    throw new Error('StorageProvider.save no implementado');
+  }
+  async read(_key) {
+    throw new Error('StorageProvider.read no implementado');
+  }
+  async delete(_key) {
+    throw new Error('StorageProvider.delete no implementado');
+  }
 }
 
 export class LocalDiskStorage extends StorageProvider {
@@ -15,7 +21,8 @@ export class LocalDiskStorage extends StorageProvider {
 
   resolve(key) {
     const resolved = path.resolve(this.root, key);
-    if (resolved !== this.root && !resolved.startsWith(`${this.root}${path.sep}`)) throw new Error('Clave de almacenamiento inválida');
+    if (resolved !== this.root && !resolved.startsWith(`${this.root}${path.sep}`))
+      throw new Error('Clave de almacenamiento inválida');
     return resolved;
   }
 
@@ -26,8 +33,12 @@ export class LocalDiskStorage extends StorageProvider {
     return key;
   }
 
-  read(key) { return fs.readFile(this.resolve(key)); }
-  delete(key) { return fs.rm(this.resolve(key), { force: true }); }
+  read(key) {
+    return fs.readFile(this.resolve(key));
+  }
+  delete(key) {
+    return fs.rm(this.resolve(key), { force: true });
+  }
 }
 
 export const storage = new LocalDiskStorage();

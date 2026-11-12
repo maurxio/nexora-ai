@@ -1,7 +1,8 @@
 import nodemailer from 'nodemailer';
 
 export function createNotifier(env = process.env) {
-  const smtpConfigured = env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && env.SMTP_PASS && env.MAIL_FROM;
+  const smtpConfigured =
+    env.SMTP_HOST && env.SMTP_PORT && env.SMTP_USER && env.SMTP_PASS && env.MAIL_FROM;
   if (!smtpConfigured) {
     return {
       async send(message) {

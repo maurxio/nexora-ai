@@ -30,58 +30,97 @@ function authResponse(user, refreshToken) {
   };
 }
 
-router.post('/register', asyncHandler(async (req, res) => {
-  const input = registerSchema.parse(req.body);
-  const email = input.email.toLowerCase();
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) throw httpError(409, 'El correo ya está registrado');
+router.post(
+  '/register',
+  asyncHandler(async (req, res) => {
+    const input = registerSchema.parse(req.body);
+    const email = input.email.toLowerCase();
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) throw httpError(409, 'El correo ya está registrado');
 
-  const user = await prisma.user.create({
-    data: { email, name: input.name, passwordHash: await hashPassword(input.password) },
-  });
-  const refreshToken = await issueRefreshToken(user.id);
-  res.status(201).json(authResponse(user, refreshToken));
-}));
+    const user = await prisma.user.create({
+      data: { email, name: input.name, passwordHash: await hashPassword(input.password) },
+    });
+    const refreshToken = await issueRefreshToken(user.id);
+    res.status(201).json(authResponse(user, refreshToken));
+  }),
+);
 
-router.post('/login', asyncHandler(async (req, res) => {
-  const input = credentialsSchema.parse(req.body);
-  const user = await prisma.user.findUnique({ where: { email: input.email.toLowerCase() } });
-  const valid = user && await verifyPassword(input.password, user.passwordHash);
-  if (!valid) throw httpError(401, 'Credenciales inválidas');
-  const response = authResponse(user, await issueRefreshToken(user.id));
-  const memberships = await prisma.membership.findMany({ where: { userId: user.id }, select: { organizationId: true } });
-  await Promise.all(memberships.map(({ organizationId }) => auditService.record({
-    tenantId: organizationId, actorId: user.id, action: 'LOGIN', entity: 'User', entityId: user.id,
-    ip: req.ip, userAgent: req.get('user-agent'),
-  })));
-  res.json(response);
-}));
+router.post(
+  '/login',
+  asyncHandler(async (req, res) => {
+    const input = credentialsSchema.parse(req.body);
+    const user = await prisma.user.findUnique({ where: { email: input.email.toLowerCase() } });
+    const valid = user && (await verifyPassword(input.password, user.passwordHash));
+    if (!valid) throw httpError(401, 'Credenciales inválidas');
+    const response = authResponse(user, await issueRefreshToken(user.id));
+    const memberships = await prisma.membership.findMany({
+      where: { userId: user.id },
+      select: { organizationId: true },
+    });
+    await Promise.all(
+      memberships.map(({ organizationId }) =>
+        auditService.record({
+          tenantId: organizationId,
+          actorId: user.id,
+          action: 'LOGIN',
+          entity: 'User',
+          entityId: user.id,
+          ip: req.ip,
+          userAgent: req.get('user-agent'),
+        }),
+      ),
+    );
+    res.json(response);
+  }),
+);
 
-router.post('/refresh', asyncHandler(async (req, res) => {
-  const { refreshToken } = refreshSchema.parse(req.body);
-  const tokenHash = refreshTokenHash(refreshToken);
-  const stored = await prisma.refreshToken.findUnique({ where: { tokenHash }, include: { user: true } });
-  if (!stored || stored.revokedAt || stored.expiresAt <= new Date()) {
-    throw httpError(401, 'Refresh token inválido o expirado');
-  }
-  const nextRefreshToken = await rotateRefreshToken(stored.id, stored.userId);
-  res.json(authResponse(stored.user, nextRefreshToken));
-}));
+router.post(
+  '/refresh',
+  asyncHandler(async (req, res) => {
+    const { refreshToken } = refreshSchema.parse(req.body);
+    const tokenHash = refreshTokenHash(refreshToken);
+    const stored = await prisma.refreshToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+    if (!stored || stored.revokedAt || stored.expiresAt <= new Date()) {
+      throw httpError(401, 'Refresh token inválido o expirado');
+    }
+    const nextRefreshToken = await rotateRefreshToken(stored.id, stored.userId);
+    res.json(authResponse(stored.user, nextRefreshToken));
+  }),
+);
 
-router.post('/logout', asyncHandler(async (req, res) => {
-  const { refreshToken } = refreshSchema.parse(req.body);
-  const tokenHash = refreshTokenHash(refreshToken);
-  await prisma.refreshToken.updateMany({ where: { tokenHash, revokedAt: null }, data: { revokedAt: new Date() } });
-  res.status(204).send();
-}));
+router.post(
+  '/logout',
+  asyncHandler(async (req, res) => {
+    const { refreshToken } = refreshSchema.parse(req.body);
+    const tokenHash = refreshTokenHash(refreshToken);
+    await prisma.refreshToken.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    res.status(204).send();
+  }),
+);
 
-router.get('/me', authenticate, asyncHandler(async (req, res) => {
-  const user = await prisma.user.findUnique({
-    where: { id: req.user.id },
-    select: { id: true, email: true, name: true, memberships: { select: { organizationId: true, role: true } } },
-  });
-  if (!user) throw httpError(401, 'No autenticado');
-  res.json(user);
-}));
+router.get(
+  '/me',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        memberships: { select: { organizationId: true, role: true } },
+      },
+    });
+    if (!user) throw httpError(401, 'No autenticado');
+    res.json(user);
+  }),
+);
 
 export default router;

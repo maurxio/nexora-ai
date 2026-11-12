@@ -4,7 +4,12 @@ import { safeMetadata } from '../src/infrastructure/audit.js';
 import { p95 } from '../src/modules/analytics/service.js';
 
 test('redacts sensitive audit metadata without retaining payloads', () => {
-  const result = safeMetadata({ connectorId: 'c1', password: 'secret', token: 'token', payload: { pii: true } });
+  const result = safeMetadata({
+    connectorId: 'c1',
+    password: 'secret',
+    token: 'token',
+    payload: { pii: true },
+  });
   assert.deepEqual(result, { connectorId: 'c1' });
 });
 

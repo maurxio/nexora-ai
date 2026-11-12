@@ -2,9 +2,11 @@ import crypto from 'node:crypto';
 
 function key() {
   const raw = process.env.INTEGRATIONS_ENCRYPTION_KEY;
-  if (!raw) throw new Error('INTEGRATIONS_ENCRYPTION_KEY es obligatoria para el módulo de integraciones');
+  if (!raw)
+    throw new Error('INTEGRATIONS_ENCRYPTION_KEY es obligatoria para el módulo de integraciones');
   const value = Buffer.from(raw, 'base64');
-  if (value.length !== 32) throw new Error('INTEGRATIONS_ENCRYPTION_KEY debe ser una clave base64 de 32 bytes');
+  if (value.length !== 32)
+    throw new Error('INTEGRATIONS_ENCRYPTION_KEY debe ser una clave base64 de 32 bytes');
   return value;
 }
 

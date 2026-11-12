@@ -6,7 +6,11 @@ const prisma = new PrismaClient();
 const user = await prisma.user.upsert({
   where: { email: 'admin@demo.nexora.local' },
   update: {},
-  create: { email: 'admin@demo.nexora.local', name: 'Demo Admin', passwordHash: await bcrypt.hash('ChangeMe123!', 10) },
+  create: {
+    email: 'admin@demo.nexora.local',
+    name: 'Demo Admin',
+    passwordHash: await bcrypt.hash('ChangeMe123!', 10),
+  },
 });
 const organization = await prisma.organization.upsert({
   where: { slug: 'demo-observability' },
@@ -18,12 +22,18 @@ await prisma.membership.upsert({
   update: { role: 'ADMIN' },
   create: { userId: user.id, organizationId: organization.id, role: 'ADMIN' },
 });
-if (!await prisma.executionMetric.count({ where: { tenantId: organization.id } })) {
+if (!(await prisma.executionMetric.count({ where: { tenantId: organization.id } }))) {
   await prisma.executionMetric.createMany({
     data: [
       { tenantId: organization.id, type: 'WORKFLOW', status: 'SUCCESS', durationMs: 120 },
       { tenantId: organization.id, type: 'DOCUMENT', status: 'SUCCESS', durationMs: 240 },
-      { tenantId: organization.id, type: 'INTEGRATION', status: 'ERROR', durationMs: 80, errorCode: 'HTTP_502' },
+      {
+        tenantId: organization.id,
+        type: 'INTEGRATION',
+        status: 'ERROR',
+        durationMs: 80,
+        errorCode: 'HTTP_502',
+      },
     ],
   });
 }

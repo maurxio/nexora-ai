@@ -3,9 +3,25 @@ import { logger } from '../infrastructure/logger.js';
 
 const retention = (name, fallback) => Math.max(1, Number(process.env[name] || fallback));
 
-export async function recordExecutionMetric({ tenantId, type, referenceId, status, durationMs, errorCode }) {
+export async function recordExecutionMetric({
+  tenantId,
+  type,
+  referenceId,
+  status,
+  durationMs,
+  errorCode,
+}) {
   try {
-    return await prisma.executionMetric.create({ data: { tenantId, type, referenceId, status, durationMs: Math.max(0, Math.round(durationMs)), errorCode } });
+    return await prisma.executionMetric.create({
+      data: {
+        tenantId,
+        type,
+        referenceId,
+        status,
+        durationMs: Math.max(0, Math.round(durationMs)),
+        errorCode,
+      },
+    });
   } catch (error) {
     logger.error({ err: error, tenantId, type, referenceId }, 'execution metric failed');
     return null;
@@ -30,8 +46,25 @@ export async function aggregateDailyStats() {
   for (const row of rows) {
     await prisma.dailyStats.upsert({
       where: { tenantId_date_type: { tenantId: row.tenantId, date: day, type: row.type } },
-      create: { tenantId: row.tenantId, date: day, type: row.type, total: row.total, successCount: row.successCount, errorCount: row.errorCount, timeoutCount: row.timeoutCount, totalDurationMs: row.totalDurationMs, p95DurationMs: row.p95DurationMs },
-      update: { total: row.total, successCount: row.successCount, errorCount: row.errorCount, timeoutCount: row.timeoutCount, totalDurationMs: row.totalDurationMs, p95DurationMs: row.p95DurationMs },
+      create: {
+        tenantId: row.tenantId,
+        date: day,
+        type: row.type,
+        total: row.total,
+        successCount: row.successCount,
+        errorCount: row.errorCount,
+        timeoutCount: row.timeoutCount,
+        totalDurationMs: row.totalDurationMs,
+        p95DurationMs: row.p95DurationMs,
+      },
+      update: {
+        total: row.total,
+        successCount: row.successCount,
+        errorCount: row.errorCount,
+        timeoutCount: row.timeoutCount,
+        totalDurationMs: row.totalDurationMs,
+        p95DurationMs: row.p95DurationMs,
+      },
     });
   }
 }
