@@ -121,3 +121,80 @@ test('agents: foreign CRUD and tool writes leave the agent unchanged', async () 
   assert.deepEqual(await prisma.agent.findUnique({ where: { id: row.id } }), row);
   assert.equal(await prisma.agent.count({ where: { organizationId: orgB.id } }), 1);
 });
+
+test('integrations: connectors, endpoints, subscriptions and logs remain tenant scoped', async () => {
+  const connector = await prisma.connector.create({
+    data: { companyId: orgB.id, createdById: user.id, name: 'Private connector', type: 'HTTP' },
+  });
+  const endpoint = await prisma.webhookEndpoint.create({
+    data: {
+      companyId: orgB.id,
+      name: 'Private endpoint',
+      slug: crypto.randomUUID(),
+      secretHash: 'unused',
+    },
+  });
+  const subscription = await prisma.webhookSubscription.create({
+    data: {
+      companyId: orgB.id,
+      url: 'https://example.com/hook',
+      eventTypes: ['test'],
+      encryptedSecret: 'unused',
+    },
+  });
+  await prisma.webhookEvent.create({
+    data: {
+      companyId: orgB.id,
+      endpointId: endpoint.id,
+      headers: {},
+      body: { private: true },
+      signatureValid: true,
+    },
+  });
+  const log = await prisma.integrationLog.create({
+    data: {
+      companyId: orgB.id,
+      connectorId: connector.id,
+      direction: 'OUTBOUND',
+      method: 'GET',
+      url: 'https://example.com',
+      requestHeaders: {},
+      durationMs: 1,
+      success: true,
+      attempt: 1,
+    },
+  });
+  for (const [path, row, model, body] of [
+    ['connectors', connector, prisma.connector, { name: 'Unauthorized', type: 'HTTP' }],
+    ['webhook-endpoints', endpoint, prisma.webhookEndpoint, { name: 'Unauthorized' }],
+    [
+      'webhook-subscriptions',
+      subscription,
+      prisma.webhookSubscription,
+      { url: 'https://example.com', eventTypes: ['test'], secret: 'unused' },
+    ],
+  ]) {
+    await api('post', orgB.id, `integrations/${path}`, body).expect(403);
+    await denied([
+      ['patch', `integrations/${path}/${row.id}`, { isActive: false }],
+      ['delete', `integrations/${path}/${row.id}`],
+    ]);
+    await hidden(`integrations/${path}`, [row.id]);
+    assert.deepEqual(await model.findUnique({ where: { id: row.id } }), row);
+    assert.equal(await model.count({ where: { companyId: orgB.id } }), 1);
+  }
+  await denied([
+    ['get', `integrations/connectors/${connector.id}`],
+    ['post', `integrations/connectors/${connector.id}/test`, {}],
+    ['post', `integrations/webhook-endpoints/${endpoint.id}/rotate-secret`, {}],
+  ]);
+  await api('get', orgB.id, `integrations/webhook-endpoints/${endpoint.id}/events`).expect(403);
+  const events = await api(
+    'get',
+    orgA.id,
+    `integrations/webhook-endpoints/${endpoint.id}/events`,
+  ).expect(200);
+  assert.deepEqual(events.body.items, []);
+  assert.equal(events.body.total, 0);
+  await hidden('integrations/integration-logs', [log.id]);
+});

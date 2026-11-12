@@ -385,10 +385,11 @@ export async function listSubscriptions(companyId) {
   ).map(publicSubscription);
 }
 export async function updateSubscription(companyId, id, input) {
-  await prisma.webhookSubscription.updateMany({
+  const result = await prisma.webhookSubscription.updateMany({
     where: { id, companyId },
     data: { url: input.url, eventTypes: input.eventTypes, isActive: input.isActive },
   });
+  if (!result.count) throw httpError(404, 'Suscripción no encontrada');
   return publicSubscription(
     await prisma.webhookSubscription.findFirstOrThrow({ where: { id, companyId } }),
   );
