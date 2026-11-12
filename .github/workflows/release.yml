@@ -1,0 +1,90 @@
+name: Release
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  release:
+    types: [published]
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.event.workflow_run.head_sha || github.sha }}
+  cancel-in-progress: false
+jobs:
+  gate:
+    if: github.event_name == 'release' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.check.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.ref }}
+          fetch-depth: 0
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          sha=$(git rev-parse HEAD)
+          git merge-base --is-ancestor "$sha" origin/main
+          for workflow in ci.yml security.yml; do
+            passed=false
+            for attempt in $(seq 1 60); do
+              state=$(gh api "repos/$GH_REPO/actions/workflows/$workflow/runs?head_sha=$sha&event=push" --jq '.workflow_runs[0] | if .status == "completed" then .conclusion else .status end')
+              if [ "$state" = success ]; then passed=true; break; fi
+              case "$state" in failure|cancelled|timed_out|action_required) exit 1;; esac
+              sleep 15
+            done
+            "$passed"
+          done
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+    permissions:
+      contents: read
+      actions: read
+  images:
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        target: [api, workflow-worker, notification-worker, document-worker, frontend]
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: '${{ needs.gate.outputs.sha }}' }
+      - id: prefix
+        run: echo "value=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ steps.prefix.outputs.value }}/${{ matrix.target }}
+          tags: |
+            type=raw,value=${{ needs.gate.outputs.sha }}
+            type=semver,pattern={{version}}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/${{ matrix.target == 'frontend' && 'frontend' || 'api' }}.Dockerfile
+          target: ${{ matrix.target == 'frontend' && '' || matrix.target }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+  staging:
+    needs: [gate, images]
+    if: github.event_name == 'workflow_run'
+    uses: ./.github/workflows/deploy.yml
+    with:
+      environment: staging
+      image_tag: ${{ needs.gate.outputs.sha }}
+    secrets: inherit

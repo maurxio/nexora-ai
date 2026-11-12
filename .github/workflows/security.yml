@@ -1,0 +1,51 @@
+name: Security
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '21 6 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm }
+      - run: npm ci
+      - run: npm audit --audit-level=high
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - run: docker run --rm -v "$PWD:/repo" zricethezav/gitleaks:v8.24.3 detect --source=/repo --redact --verbose
+  images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [api, workflow-worker, notification-worker, document-worker, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/${{ matrix.target == 'frontend' && 'frontend' || 'api' }}.Dockerfile
+          target: ${{ matrix.target == 'frontend' && '' || matrix.target }}
+          tags: nexora-scan:local
+          load: true
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+      - uses: aquasecurity/trivy-action@0.35.0
+        with:
+          image-ref: nexora-scan:local
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: false

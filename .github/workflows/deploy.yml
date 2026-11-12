@@ -1,0 +1,55 @@
+name: Deploy
+on:
+  workflow_call:
+    inputs:
+      environment: { required: true, type: string }
+      image_tag: { required: true, type: string }
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [staging, production]
+        required: true
+      image_tag:
+        description: Full SHA of an image already verified in staging
+        required: true
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy via pinned SSH host
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          IMAGE_TAG: ${{ inputs.image_tag }}
+        run: |
+          [[ "$IMAGE_TAG" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.-]+$ ]]
+          [[ "$DEPLOY_USER" =~ ^[a-zA-Z_][a-zA-Z0-9_-]*$ ]]
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          ssh -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" "bash -s -- $IMAGE_TAG" <<'REMOTE'
+          set -euo pipefail
+          cd /opt/nexora
+          git fetch origin main
+          git merge-base --is-ancestor "$1" origin/main
+          git checkout --detach "$1"
+          if [ -f .deployed-sha ]; then cp .deployed-sha .previous-sha; fi
+          export IMAGE_TAG="$1"
+          bash scripts/deploy.sh
+          printf '%s\n' "$1" > .deployed-sha
+          REMOTE
+      - if: always()
+        run: rm -f ~/.ssh/id_ed25519
