@@ -274,3 +274,41 @@ test('approvals and notifications: foreign decisions and read markers cannot cha
   );
   assert.equal(await prisma.approval.count({ where: { companyId: orgB.id } }), 1);
 });
+
+test('AI providers: foreign CRUD, test and default selection are denied', async () => {
+  const row = await prisma.aiProviderConfig.create({
+    data: {
+      orgId: orgB.id,
+      createdById: user.id,
+      name: 'Private mock',
+      provider: 'mock',
+      model: 'mock',
+    },
+  });
+  await api('post', orgB.id, 'ai/providers', {
+    name: 'Unauthorized',
+    provider: 'mock',
+    model: 'mock',
+  }).expect(403);
+  await denied([
+    ['get', `ai/providers/${row.id}`],
+    ['patch', `ai/providers/${row.id}`, { name: 'Changed' }],
+    ['delete', `ai/providers/${row.id}`],
+    ['post', `ai/providers/${row.id}/test`, {}],
+    ['post', `ai/providers/${row.id}/set-default`, {}],
+  ]);
+  await hidden('ai/providers', [row.id]);
+  await api('get', orgA.id, 'ai/providers', undefined, auditor).expect(403);
+  for (const orgId of [orgA.id, orgB.id]) {
+    await api('patch', orgId, 'ai/providers/organization/private-hosts', {
+      allowPrivateHosts: true,
+    }).expect(403);
+    assert.equal(
+      (await prisma.organization.findUnique({ where: { id: orgId } })).allowPrivateHosts,
+      false,
+    );
+  }
+  assert.deepEqual(await prisma.aiProviderConfig.findUnique({ where: { id: row.id } }), row);
+  assert.equal(await prisma.aiProviderConfig.count({ where: { orgId: orgB.id } }), 1);
+  assert.equal(await prisma.aiUsage.count({ where: { orgId: orgB.id } }), 0);
+});
