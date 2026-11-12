@@ -14,3 +14,9 @@ const database = new URL(process.env.DATABASE_URL);
 if (!database.pathname.endsWith('_test')) throw new Error('Test database name must end in _test');
 const redis = new URL(process.env.REDIS_URL);
 if (redis.pathname !== '/1') throw new Error('Tests require Redis database 1');
+
+// All production HTTP clients use fetch. Each exercised provider/integration must
+// install its own deterministic mock; accidental calls never reach the network.
+globalThis.fetch = async () => {
+  throw new Error('External HTTP must be mocked in backend tests');
+};
