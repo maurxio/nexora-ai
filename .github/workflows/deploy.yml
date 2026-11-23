@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Deploy via pinned SSH host
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
