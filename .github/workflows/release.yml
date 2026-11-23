@@ -70,7 +70,7 @@ jobs:
           tags: |
             type=raw,value=${{ needs.gate.outputs.sha }}
             type=semver,pattern={{version}}
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: infrastructure/docker/${{ matrix.target == 'frontend' && 'frontend' || 'api' }}.Dockerfile
