@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom';
 import { workflowsApi } from '../api/client.js';
-import { Button, Empty, ErrorMessage, Input, Loading } from '../components/Ui.jsx';
+import {
+  Button,
+  Empty,
+  ErrorMessage,
+  Input,
+  Loading,
+  Table,
+  PageHeader,
+  Textarea,
+} from '../components/Ui.jsx';
 
 export default function WorkflowsPage() {
   const { orgId } = useParams();
@@ -12,7 +21,14 @@ export default function WorkflowsPage() {
   const [form, setForm] = useState({ name: '', description: '' });
   const [sending, setSending] = useState(false);
   const editable = role === 'ADMIN' || role === 'OPERATOR';
-  const load = () => workflowsApi.list(orgId).then(setItems).catch(setError);
+  const load = () =>
+    workflowsApi
+      .list(orgId)
+      .then((result) => {
+        setError(null);
+        setItems(result);
+      })
+      .catch(setError);
   useEffect(() => {
     let cancelado = false;
     const loadWorkflows = async () => {
@@ -61,63 +77,56 @@ export default function WorkflowsPage() {
     );
   return (
     <section className="space-y-5">
-      <h2 className="text-xl font-semibold">Workflows</h2>
+      <PageHeader
+        title="Workflows"
+        description="Diseña, publica y administra tus procesos de automatización."
+      />
       <ErrorMessage error={error} />
       {items.length === 0 ? (
         <Empty>Aún no hay workflows.</Empty>
       ) : (
-        <div className="overflow-x-auto rounded-lg bg-white shadow-sm">
-          <table className="w-full min-w-[650px] text-left text-sm">
-            <thead className="border-b text-slate-500">
-              <tr>
-                <th className="p-3">Nombre</th>
-                <th className="p-3">Descripción</th>
-                <th className="p-3">Última versión</th>
-                <th className="p-3">Actualizado</th>
-                <th className="p-3">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((workflow) => (
-                <tr key={workflow.id || workflow.name} className="border-b last:border-0">
-                  <td className="p-3 font-medium">
-                    {workflow.id ? (
-                      <Link
-                        className="text-blue-700 underline"
-                        to={`/o/${orgId}/workflows/${workflow.id}`}
-                      >
-                        {workflow.name}
-                      </Link>
-                    ) : (
-                      workflow.name
-                    )}
-                  </td>
-                  <td className="p-3">{workflow.description || '—'}</td>
-                  <td className="p-3">
-                    {workflow.latestVersion == null ? 'Sin publicar' : `v${workflow.latestVersion}`}
-                  </td>
-                  <td className="p-3">
-                    {workflow.updatedAt ? new Date(workflow.updatedAt).toLocaleString('es') : '—'}
-                  </td>
-                  <td className="p-3">
-                    {role === 'ADMIN' && (
-                      <button
-                        disabled={!workflow.id}
-                        className="text-red-700 underline disabled:opacity-40"
-                        onClick={() => remove(workflow)}
-                      >
-                        Borrar
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table
+          sortable
+          headers={['Nombre', 'Descripción', 'Última versión', 'Actualizado', 'Acciones']}
+        >
+          {items.map((workflow) => (
+            <tr key={workflow.id || workflow.name} className="border-b last:border-0">
+              <td className="p-3 font-medium">
+                {workflow.id ? (
+                  <Link
+                    className="text-blue-700 dark:text-blue-300 underline"
+                    to={`/o/${orgId}/workflows/${workflow.id}`}
+                  >
+                    {workflow.name}
+                  </Link>
+                ) : (
+                  workflow.name
+                )}
+              </td>
+              <td className="p-3">{workflow.description || '—'}</td>
+              <td className="p-3">
+                {workflow.latestVersion == null ? 'Sin publicar' : `v${workflow.latestVersion}`}
+              </td>
+              <td className="p-3">
+                {workflow.updatedAt ? new Date(workflow.updatedAt).toLocaleString('es') : '—'}
+              </td>
+              <td className="p-3">
+                {role === 'ADMIN' && (
+                  <button
+                    disabled={!workflow.id}
+                    className="text-red-700 dark:text-red-300 underline disabled:opacity-40"
+                    onClick={() => remove(workflow)}
+                  >
+                    Borrar
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </Table>
       )}
       {editable && (
-        <form onSubmit={create} className="space-y-3 rounded-lg bg-white p-4 shadow-sm">
+        <form onSubmit={create} className="space-y-3 surface rounded-lg p-4 shadow-sm">
           <h3 className="font-semibold">Crear workflow</h3>
           <Input
             label="Nombre"

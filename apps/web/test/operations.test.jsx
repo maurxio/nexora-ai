@@ -124,6 +124,8 @@ test('approvals require rejection comment and submit decision', async () => {
     target: { value: 'Incorrect total' },
   });
   fireEvent.click(screen.getByRole('button', { name: 'Rechazar' }));
+  expect(api.approvalsApi.reject).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
   await waitFor(() =>
     expect(api.approvalsApi.reject).toHaveBeenCalledWith('acme', 'a', 'Incorrect total'),
   );
@@ -204,7 +206,7 @@ test('workflow detail saves metadata, validates draft and executes input', async
   fireEvent.change(screen.getByPlaceholderText('Campo'), { target: { value: 'invoice' } });
   fireEvent.change(screen.getByPlaceholderText('Valor'), { target: { value: '123' } });
   fireEvent.click(screen.getByRole('button', { name: 'Ejecutar', exact: true }));
-  expect(await screen.findByText('Ejecución QUEUED')).toBeInTheDocument();
+  expect(await screen.findByText('Ejecución En cola')).toBeInTheDocument();
   expect(api.workflowsApi.execute).toHaveBeenCalledWith('acme', 'one', {
     input: { invoice: '123' },
   });

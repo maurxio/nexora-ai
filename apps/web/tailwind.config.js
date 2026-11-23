@@ -1,0 +1,42 @@
+export default {
+  theme: {
+    extend: {
+      colors: {
+        brand: {
+          50: '#eef2ff',
+          100: '#e0e7ff',
+          200: '#c7d2fe',
+          300: '#a5b4fc',
+          400: '#818cf8',
+          500: '#6366f1',
+          600: '#4f46e5',
+          700: '#4338ca',
+          800: '#3730a3',
+          900: '#312e81',
+        },
+        canvas: 'var(--canvas)',
+        surface: 'var(--surface)',
+        border: 'var(--border)',
+        primary: 'var(--text)',
+        secondary: 'var(--muted)',
+        tertiary: 'var(--tertiary)',
+        success: 'var(--success)',
+        warning: 'var(--warning)',
+        danger: 'var(--danger)',
+        info: 'var(--info)',
+      },
+      fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+      fontSize: {
+        xs: '12px',
+        caption: '13px',
+        sm: '14px',
+        base: '16px',
+        xl: '20px',
+        '2xl': '24px',
+        '3xl': '30px',
+      },
+      borderRadius: { md: '6px', lg: '8px' },
+      boxShadow: { sm: '0 1px 2px rgb(15 23 42 / .04)', md: '0 4px 16px rgb(15 23 42 / .08)' },
+    },
+  },
+};

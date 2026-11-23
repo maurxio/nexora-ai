@@ -8,7 +8,8 @@
     "test": "node --import ../../test/env.js --test --test-timeout=30000 --test-concurrency=1 test/*.test.js",
     "test:unit": "node --import ../../test/env.js --test --test-timeout=30000 --test-concurrency=1 test/*.unit.test.js test/documents.rules.test.js",
     "test:integration": "node --import ../../test/env.js --test --test-timeout=30000 --test-concurrency=1 test/*.integration.test.js test/approvals.test.js",
-    "build": "node ../../scripts/check-js.js src"
+    "build": "node ../../scripts/check-js.js src",
+    "test:coverage": "c8 --all --include=\"src/**/*.js\" --exclude=\"**/server.js\" --exclude=\"**/bootstrap.js\" --reporter=text --reporter=lcov npm test"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

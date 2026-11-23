@@ -14,3 +14,11 @@ vi.stubGlobal('localStorage', {
   removeItem: (key) => storage.delete(key),
   clear: () => storage.clear(),
 });
+
+// jsdom does not implement the browser's native modal dialog API.
+HTMLDialogElement.prototype.showModal = function () {
+  this.setAttribute('open', '');
+};
+HTMLDialogElement.prototype.close = function () {
+  this.removeAttribute('open');
+};

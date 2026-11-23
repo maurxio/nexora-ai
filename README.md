@@ -4,11 +4,13 @@ Backend base de NEXORA AI, una API SaaS multiempresa con Express, Prisma y Postg
 
 ## Arranque
 
-Requisitos: Node.js 20.6+, Docker y Docker Compose.
+Requisitos: Node.js 22.13+ (recomendado 24), Docker y Docker Compose.
 
 ```bash
-npm install
+npm ci
 cp .env.example .env
+# Completar JWT_SECRET, AI_KEY_ENCRYPTION_SECRET e INTEGRATIONS_ENCRYPTION_KEY
+# según los comandos de .env.example antes de arrancar.
 npm run dev
 ```
 
@@ -45,3 +47,30 @@ Antes de publicar usa **Validar workflow**. El botón **Probar workflow** crea u
 ejecución de la última versión publicada y muestra el estado de sus pasos.
 Las versiones publicadas son inmutables; los cambios se realizan siempre sobre
 el borrador.
+
+## Calidad, pruebas y despliegue
+
+```sh
+npm ci
+npm run db:generate
+npm run test:db:up
+npm run lint && npm test && npm run build
+npm run format:check
+npm run test:coverage
+npm run test:handles
+npx playwright install --with-deps chromium
+npm run test:e2e
+npm run test:db:down
+```
+
+Los tests usan PostgreSQL/Redis efímeros independientes de `.env` y migraciones reales.
+CI verifica Node 22/24, cobertura, frontend y backend; Security audita dependencias,
+secretos e imágenes. Release publica cinco imágenes GHCR por SHA/semver y despliega
+staging; producción requiere el environment protegido con aprobación configurada.
+
+La estrategia principal usa VPS + Docker Compose + Caddy/TLS. Antes del primer
+arranque configura secretos y dominio siguiendo [DEPLOYMENT](docs/DEPLOYMENT.md).
+Consulta [TESTING](docs/TESTING.md), [RUNBOOK](docs/RUNBOOK.md),
+[checklist de producción](docs/PRODUCTION_CHECKLIST.md) y [entrega/verificación](docs/DELIVERY.md).
+Existen stubs de negocio descritos en el runbook que deben resolverse o deshabilitarse
+antes de ofrecer esas funciones en producción.

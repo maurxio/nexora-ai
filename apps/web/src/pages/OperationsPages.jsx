@@ -21,6 +21,11 @@ import {
   Table,
   Textarea,
   Timeline,
+  Modal,
+  Drawer,
+  ConfirmDialog,
+  statusLabel,
+  Tabs,
 } from '../components/Ui.jsx';
 
 export function RunsPage() {
@@ -32,7 +37,10 @@ export function RunsPage() {
   const load = () =>
     executionsApi
       .list(orgId, { limit: 25, ...(status ? { status } : {}) })
-      .then(setData)
+      .then((result) => {
+        setError(null);
+        setData(result);
+      })
       .catch(setError);
   useEffect(() => {
     load();
@@ -43,7 +51,7 @@ export function RunsPage() {
       <PageHeader
         eyebrow="Operaciones"
         title="Ejecuciones"
-        description="Supervisa cada corrida de tus workflows."
+        description="Supervisa el estado y la actividad de tus workflows."
       />
       <div className="mb-4 flex max-w-xs">
         <Select
@@ -55,7 +63,7 @@ export function RunsPage() {
           {['QUEUED', 'RUNNING', 'WAITING_APPROVAL', 'SUCCEEDED', 'FAILED', 'CANCELLED'].map(
             (value) => (
               <option key={value} value={value}>
-                {value}
+                {statusLabel(value)}
               </option>
             ),
           )}
@@ -66,7 +74,7 @@ export function RunsPage() {
       ) : data.items.length === 0 ? (
         <Empty>No hay ejecuciones para este filtro.</Empty>
       ) : (
-        <Table headers={['Estado', 'Ejecución', 'Workflow', 'Creada', 'Acciones']}>
+        <Table sortable headers={['Estado', 'Ejecución', 'Workflow', 'Creada', 'Acciones']}>
           <>
             {data.items.map((run) => (
               <tr key={run.id}>
@@ -103,6 +111,7 @@ export function RunDetailPage() {
   const load = () =>
     Promise.all([executionsApi.get(orgId, id), executionsApi.steps(orgId, id)])
       .then(([item, list]) => {
+        setError(null);
         setRun(item);
         setSteps(list);
       })
@@ -121,7 +130,7 @@ export function RunDetailPage() {
       />
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
-          <h2 className="mb-5 font-semibold">Timeline de pasos</h2>
+          <h2 className="mb-5 font-semibold">Secuencia de pasos</h2>
           {steps.length ? (
             <Timeline items={steps} />
           ) : (
@@ -132,7 +141,9 @@ export function RunDetailPage() {
           <h2 className="mb-4 font-semibold">Entrada</h2>
           <JsonViewer value={run.input} />
           <h2 className="mb-4 mt-6 font-semibold">Error</h2>
-          <p className="text-sm text-red-700">{run.error || 'Sin errores registrados.'}</p>
+          <p className="text-sm text-red-700 dark:text-red-300">
+            {run.error || 'Sin errores registrados.'}
+          </p>
         </Card>
       </div>
     </>
@@ -145,21 +156,40 @@ export function ApprovalsPage() {
   const [data, setData] = useState(null);
   const [selected, setSelected] = useState(null);
   const [comment, setComment] = useState('');
+  const [confirmation, setConfirmation] = useState(null);
+  const [deciding, setDeciding] = useState(false);
+  const requestDecision = (action) => {
+    if (action === 'reject' && !comment.trim())
+      return setError(new Error('El comentario es obligatorio al rechazar.'));
+    setConfirmation(action);
+  };
   const [error, setError] = useState(null);
-  const load = () => approvalsApi.list(orgId, { status, limit: 25 }).then(setData).catch(setError);
+  const load = () =>
+    approvalsApi
+      .list(orgId, { status, limit: 25 })
+      .then((result) => {
+        setError(null);
+        setData(result);
+      })
+      .catch(setError);
   useEffect(() => {
     load();
   }, [orgId, status]);
   const decide = async (action) => {
     if (action === 'reject' && !comment.trim())
       return setError(new Error('El comentario es obligatorio al rechazar.'));
+    setDeciding(true);
     try {
       await approvalsApi[action](orgId, selected.id, comment);
+      setConfirmation(null);
       setSelected(null);
       setComment('');
       load();
     } catch (err) {
       setError(err);
+      setConfirmation(null);
+    } finally {
+      setDeciding(false);
     }
   };
   if (!data && !error) return <Loading />;
@@ -170,25 +200,20 @@ export function ApprovalsPage() {
         title="Aprobaciones"
         description="Revisa y decide solicitudes que detienen procesos."
       />
-      <div className="mb-5 flex gap-2">
-        <Button
-          variant={status === 'PENDING' ? 'primary' : 'secondary'}
-          onClick={() => setStatus('PENDING')}
-        >
-          Pendientes
-        </Button>
-        <Button
-          variant={status !== 'PENDING' ? 'primary' : 'secondary'}
-          onClick={() => setStatus('APPROVED')}
-        >
-          Resueltas
-        </Button>
-      </div>
-      {error && <ErrorMessage error={error} onRetry={load} />}
+      <Tabs
+        label="Bandejas de aprobaciones"
+        value={status === 'PENDING' ? 'PENDING' : 'APPROVED'}
+        onChange={setStatus}
+        items={[
+          { value: 'PENDING', label: 'Pendientes' },
+          { value: 'APPROVED', label: 'Resueltas' },
+        ]}
+      />
+      {error && !selected && <ErrorMessage error={error} onRetry={load} />}
       {data?.items.length === 0 ? (
         <Empty>No hay aprobaciones en esta bandeja.</Empty>
       ) : (
-        <Table headers={['Estado', 'Solicitud', 'Creada', 'Acción']}>
+        <Table sortable headers={['Estado', 'Solicitud', 'Creada', 'Acción']}>
           <>
             {data?.items.map((item) => (
               <tr key={item.id}>
@@ -212,13 +237,10 @@ export function ApprovalsPage() {
           </>
         </Table>
       )}
+
       {selected && (
-        <div
-          className="fixed inset-0 z-30 flex items-center justify-center bg-slate-950/50 p-4"
-          role="dialog"
-          aria-modal="true"
-        >
-          <Card className="w-full max-w-xl">
+        <Modal title="Revisar solicitud" onClose={() => setSelected(null)}>
+          <div>
             <div className="flex items-start justify-between">
               <div>
                 <h2 className="text-lg font-semibold">{selected.title}</h2>
@@ -229,6 +251,7 @@ export function ApprovalsPage() {
             <div className="my-5">
               <JsonViewer value={selected.payload} />
             </div>
+            <ErrorMessage error={error} />
             <Textarea
               label="Comentario (obligatorio para rechazar)"
               value={comment}
@@ -238,13 +261,23 @@ export function ApprovalsPage() {
               <Button variant="secondary" onClick={() => setSelected(null)}>
                 Cerrar
               </Button>
-              <Button variant="danger" onClick={() => decide('reject')}>
+              <Button variant="danger" onClick={() => requestDecision('reject')}>
                 Rechazar
               </Button>
-              <Button onClick={() => decide('approve')}>Aprobar</Button>
+              <Button onClick={() => requestDecision('approve')}>Aprobar</Button>
             </div>
-          </Card>
-        </div>
+          </div>
+        </Modal>
+      )}
+      {confirmation && (
+        <ConfirmDialog
+          title={confirmation === 'approve' ? 'Aprobar solicitud' : 'Rechazar solicitud'}
+          description="La decisión se aplicará a esta solicitud y al proceso asociado."
+          danger={confirmation === 'reject'}
+          loading={deciding}
+          onClose={() => !deciding && setConfirmation(null)}
+          onConfirm={() => decide(confirmation)}
+        />
       )}
     </>
   );
@@ -254,7 +287,14 @@ export function NotificationsPage() {
   const { orgId } = useParams();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const load = () => notificationsApi.list(orgId, { limit: 50 }).then(setData).catch(setError);
+  const load = () =>
+    notificationsApi
+      .list(orgId, { limit: 50 })
+      .then((result) => {
+        setError(null);
+        setData(result);
+      })
+      .catch(setError);
   useEffect(() => {
     load();
   }, [orgId]);
@@ -289,7 +329,7 @@ export function NotificationsPage() {
             <button
               key={item.id}
               onClick={() => mark(item.id)}
-              className={`surface block w-full rounded-lg p-4 text-left ${item.readAt ? 'opacity-60' : 'border-blue-200'}`}
+              className={`surface block w-full rounded-lg p-4 text-left ${item.readAt ? 'opacity-60' : 'border-blue-200 dark:border-blue-800'}`}
             >
               <p className="font-medium">{item.title}</p>
               <p className="mt-1 text-sm muted">{item.body}</p>
@@ -308,7 +348,15 @@ export function DocumentsPage() {
   const { orgId } = useParams();
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
-  const load = () => documentsApi.list(orgId, { limit: 25 }).then(setData).catch(setError);
+  const [selected, setSelected] = useState(null);
+  const load = () =>
+    documentsApi
+      .list(orgId, { limit: 25 })
+      .then((result) => {
+        setError(null);
+        setData(result);
+      })
+      .catch(setError);
   useEffect(() => {
     load();
   }, [orgId]);
@@ -325,11 +373,18 @@ export function DocumentsPage() {
       ) : data.data.length === 0 ? (
         <Empty>No hay documentos cargados.</Empty>
       ) : (
-        <Table headers={['Archivo', 'Tipo', 'Estado', 'Fecha']}>
+        <Table sortable headers={['Archivo', 'Tipo', 'Estado', 'Fecha']}>
           <>
             {data.data.map((doc) => (
               <tr key={doc.id}>
-                <td className="px-4 py-3 font-medium">{doc.originalName}</td>
+                <td className="px-4 py-3 font-medium">
+                  <button
+                    className="text-left text-brand-700 underline dark:text-brand-300"
+                    onClick={() => setSelected(doc)}
+                  >
+                    {doc.originalName}
+                  </button>
+                </td>
                 <td className="px-4 py-3 text-sm muted">{doc.docType || 'Pendiente'}</td>
                 <td className="px-4 py-3">
                   <StatusPill status={doc.status} />
@@ -342,6 +397,26 @@ export function DocumentsPage() {
           </>
         </Table>
       )}
+      {selected && (
+        <Drawer title="Detalle del documento" onClose={() => setSelected(null)}>
+          <h3 className="mb-3 break-words font-medium">{selected.originalName}</h3>
+          <StatusPill status={selected.status} />
+          <dl className="mt-6 space-y-4 text-sm">
+            <div>
+              <dt className="muted">Tipo de documento</dt>
+              <dd>{selected.docType || 'Pendiente de clasificación'}</dd>
+            </div>
+            <div>
+              <dt className="muted">Fecha de carga</dt>
+              <dd>{new Date(selected.createdAt).toLocaleString('es-CO')}</dd>
+            </div>
+            <div>
+              <dt className="muted">Identificador</dt>
+              <dd className="break-all font-mono text-xs">{selected.id}</dd>
+            </div>
+          </dl>
+        </Drawer>
+      )}
     </>
   );
 }
@@ -350,7 +425,15 @@ export function IntegrationsPage() {
   const { orgId } = useParams();
   const [items, setItems] = useState(null);
   const [error, setError] = useState(null);
-  const load = () => integrationsApi.list(orgId).then(setItems).catch(setError);
+  const [selected, setSelected] = useState(null);
+  const load = () =>
+    integrationsApi
+      .list(orgId)
+      .then((result) => {
+        setError(null);
+        setItems(result);
+      })
+      .catch(setError);
   useEffect(() => {
     load();
   }, [orgId]);
@@ -378,9 +461,38 @@ export function IntegrationsPage() {
                 </div>
                 <StatusPill status={item.isActive ? 'ACTIVE' : 'INACTIVE'} />
               </div>
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-4">
+                <span className="text-xs muted">
+                  {item.lastEventAt
+                    ? `Último evento: ${new Date(item.lastEventAt).toLocaleString('es-CO')}`
+                    : 'Sin información del último evento'}
+                </span>
+                <Button variant="secondary" size="sm" onClick={() => setSelected(item)}>
+                  Ver configuración
+                </Button>
+              </div>
             </Card>
           ))}
         </div>
+      )}
+      {selected && (
+        <Drawer title="Configuración del conector" onClose={() => setSelected(null)}>
+          <h3 className="mb-3 font-medium">{selected.name}</h3>
+          <StatusPill status={selected.isActive ? 'ACTIVE' : 'INACTIVE'} />
+          <dl className="mt-6 space-y-5 text-sm">
+            <div>
+              <dt className="muted">Tipo</dt>
+              <dd>{selected.type}</dd>
+            </div>
+            <div>
+              <dt className="muted">Dirección base</dt>
+              <dd className="break-all">{selected.baseUrl || 'Sin URL base'}</dd>
+            </div>
+          </dl>
+          <p className="mt-6 text-xs muted">
+            La edición de la configuración no está disponible en esta vista.
+          </p>
+        </Drawer>
       )}
     </>
   );
@@ -418,7 +530,7 @@ export function AnalyticsPage() {
           <Card className="mt-6">
             <h2 className="mb-4 font-semibold">Errores principales</h2>
             {errors.length ? (
-              <Table headers={['Código', 'Ocurrencias', 'Último evento']}>
+              <Table sortable headers={['Código', 'Ocurrencias', 'Último evento']}>
                 <>
                   {errors.map((item) => (
                     <tr key={item.errorCode}>

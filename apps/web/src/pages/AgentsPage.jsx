@@ -1,7 +1,16 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext, useParams } from 'react-router-dom';
 import { agentsApi } from '../api/client.js';
-import { Button, Empty, ErrorMessage, Input, Loading } from '../components/Ui.jsx';
+import {
+  Button,
+  Empty,
+  ErrorMessage,
+  Input,
+  Loading,
+  Table,
+  PageHeader,
+  Textarea,
+} from '../components/Ui.jsx';
 
 const emptyForm = {
   name: '',
@@ -51,7 +60,7 @@ function AgentForm({ agent, orgId, catalog, role, error, onDone, onError }) {
     }
   };
   return (
-    <form onSubmit={save} className="space-y-3 rounded-lg bg-white p-4 shadow-sm">
+    <form onSubmit={save} className="space-y-3 surface rounded-lg p-4 shadow-sm">
       <h2 className="font-semibold">{agent ? 'Editar agente' : 'Nuevo agente'}</h2>
       <Input
         label="Nombre"
@@ -67,16 +76,13 @@ function AgentForm({ agent, orgId, catalog, role, error, onDone, onError }) {
         onChange={(e) => update('description', e.target.value)}
         disabled={!editable}
       />
-      <label className="block text-sm font-medium text-slate-700">
-        Instrucciones del sistema
-        <textarea
-          className="mt-1 min-h-24 w-full rounded-lg border border-slate-300 p-2"
-          value={form.systemInstructions}
-          onChange={(e) => update('systemInstructions', e.target.value)}
-          disabled={!editable}
-          required
-        />
-      </label>
+      <Textarea
+        label="Instrucciones del sistema"
+        value={form.systemInstructions}
+        onChange={(e) => update('systemInstructions', e.target.value)}
+        disabled={!editable}
+        required
+      />
       <div className="grid gap-3 sm:grid-cols-3">
         <Input
           label="Modelo"
@@ -120,7 +126,7 @@ function AgentForm({ agent, orgId, catalog, role, error, onDone, onError }) {
                 disabled={!editable}
               />
               {tool.name}
-              <span className="ml-1 text-slate-500">— {tool.description}</span>
+              <span className="ml-1 muted">— {tool.description}</span>
             </label>
           ))}
         </div>
@@ -182,8 +188,8 @@ export default function AgentsPage() {
     <section className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-semibold">Agentes</h2>
-          <p className="text-sm text-slate-500">Configura los agentes de esta organización.</p>
+          <h1 className="text-2xl font-semibold tracking-tight">Agentes</h1>
+          <p className="text-sm muted">Configura los agentes de esta organización.</p>
         </div>
         {(role === 'ADMIN' || role === 'OPERATOR') && (
           <Button onClick={() => setEditing({ organizationId: orgId })}>Nuevo agente</Button>
@@ -207,46 +213,36 @@ export default function AgentsPage() {
       {agents.length === 0 ? (
         <Empty>Aún no hay agentes.</Empty>
       ) : (
-        <div className="overflow-x-auto rounded-lg bg-white shadow-sm">
-          <table className="w-full min-w-[650px] text-left text-sm">
-            <thead className="border-b text-slate-500">
-              <tr>
-                <th className="p-3">Nombre</th>
-                <th className="p-3">Descripción</th>
-                <th className="p-3">Modelo</th>
-                <th className="p-3">Herramientas</th>
-                <th className="p-3">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {agents.map((agent) => (
-                <tr key={agent.id} className="border-b last:border-0">
-                  <td className="p-3 font-medium">{agent.name}</td>
-                  <td className="p-3">{agent.description || '—'}</td>
-                  <td className="p-3">{agent.model || '—'}</td>
-                  <td className="p-3">{toolNames(agent).join(', ') || '—'}</td>
-                  <td className="p-3">
-                    <div className="flex gap-2">
-                      {(role === 'ADMIN' || role === 'OPERATOR') && (
-                        <button
-                          className="text-blue-700 underline"
-                          onClick={() => setEditing(agent)}
-                        >
-                          Editar
-                        </button>
-                      )}
-                      {role === 'ADMIN' && (
-                        <button className="text-red-700 underline" onClick={() => remove(agent)}>
-                          Borrar
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Table sortable headers={['Nombre', 'Descripción', 'Modelo', 'Herramientas', 'Acciones']}>
+          {agents.map((agent) => (
+            <tr key={agent.id} className="border-b last:border-0">
+              <td className="p-3 font-medium">{agent.name}</td>
+              <td className="p-3">{agent.description || '—'}</td>
+              <td className="p-3">{agent.model || '—'}</td>
+              <td className="p-3">{toolNames(agent).join(', ') || '—'}</td>
+              <td className="p-3">
+                <div className="flex gap-2">
+                  {(role === 'ADMIN' || role === 'OPERATOR') && (
+                    <button
+                      className="text-blue-700 dark:text-blue-300 underline"
+                      onClick={() => setEditing(agent)}
+                    >
+                      Editar
+                    </button>
+                  )}
+                  {role === 'ADMIN' && (
+                    <button
+                      className="text-red-700 dark:text-red-300 underline"
+                      onClick={() => remove(agent)}
+                    >
+                      Borrar
+                    </button>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </Table>
       )}
     </section>
   );

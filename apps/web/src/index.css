@@ -1,4 +1,29 @@
 @import 'tailwindcss';
+@config '../tailwind.config.js';
+
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/inter-400.ttf') format('truetype');
+}
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/inter-500.ttf') format('truetype');
+}
+@font-face {
+  font-family: Inter;
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/inter-600.ttf') format('truetype');
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   font-family:
@@ -9,9 +34,18 @@
     BlinkMacSystemFont,
     'Segoe UI',
     sans-serif;
+  color-scheme: light;
   color: #172033;
   background: #f7f8fa;
-  --brand: #3157d5;
+  --control-border: #8995a6;
+  --brand: #4338ca;
+  --canvas: #f8fafc;
+  --text: #172033;
+  --tertiary: #5d6b80;
+  --success: #047857;
+  --warning: #92400e;
+  --danger: #b91c1c;
+  --info: #1d4ed8;
   --surface: #ffffff;
   --surface-muted: #f1f3f6;
   --border: #e2e6ec;
@@ -21,6 +55,15 @@
   color-scheme: dark;
   color: #e5e7eb;
   background: #111827;
+  --control-border: #718198;
+  --brand: #a5b4fc;
+  --canvas: #0f172a;
+  --text: #e5e7eb;
+  --tertiary: #94a3b8;
+  --success: #6ee7b7;
+  --warning: #fcd34d;
+  --danger: #fca5a5;
+  --info: #93c5fd;
   --surface: #18212f;
   --surface-muted: #202b3b;
   --border: #334155;
@@ -40,12 +83,30 @@ textarea,
 select {
   font: inherit;
 }
+input,
+textarea,
+select {
+  color: inherit;
+  background-color: var(--surface);
+  border-color: var(--border);
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+}
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--border);
+  }
+}
 button:focus-visible,
 a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 3px solid #93c5fd;
+  outline: 2px solid var(--brand);
   outline-offset: 2px;
 }
 .surface {
@@ -63,4 +124,142 @@ select:focus-visible {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+}
+
+body {
+  background: var(--canvas);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+select {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+h1,
+h2,
+h3,
+strong,
+b {
+  font-weight: 600;
+}
+table {
+  font-variant-numeric: tabular-nums;
+}
+thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-muted);
+}
+th {
+  white-space: nowrap;
+}
+tbody tr:hover {
+  background: var(--surface-muted);
+}
+td {
+  vertical-align: middle;
+}
+.control {
+  border-color: var(--control-border);
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 8px 12px;
+  font-size: 14px;
+}
+.control[aria-invalid='true'] {
+  border-color: var(--danger);
+}
+.control:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.ui-dialog {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 24px;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  box-shadow: 0 4px 16px rgb(15 23 42 / 0.08);
+}
+.ui-dialog::backdrop {
+  background: rgb(2 6 23 / 0.55);
+}
+.ui-drawer {
+  margin: 0 0 0 auto;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  border-radius: 0;
+}
+.skip-link {
+  position: fixed;
+  top: -100px;
+  left: 16px;
+  z-index: 100;
+  padding: 8px 16px;
+  background: var(--surface);
+  border: 2px solid var(--brand);
+}
+.skip-link:focus {
+  top: 12px;
+}
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 6px;
+  padding: 9px 10px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.nav-item:hover {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+.nav-item.active {
+  background: #eef2ff;
+  color: #4338ca;
+}
+.dark .nav-item.active {
+  background: #272957;
+  color: #c7d2fe;
+}
+.tooltip-label {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--canvas);
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+  font-size: 12px;
+  z-index: 50;
+}
+.tooltip-host:hover .tooltip-label,
+.tooltip-host:focus-within .tooltip-label {
+  display: block;
+}
+
+.control {
+  border-color: var(--control-border);
 }

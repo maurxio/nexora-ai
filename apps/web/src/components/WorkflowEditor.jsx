@@ -14,6 +14,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Button, Input } from './Ui.jsx';
+import { useTheme } from '../theme/ThemeContext.jsx';
 import {
   NODE_CATALOG,
   catalogByType,
@@ -36,14 +37,14 @@ function WorkflowNode({ data, selected }) {
     }[data.state] || 'Incompleto';
   return (
     <div
-      className={`relative min-w-48 rounded-xl border-2 bg-white shadow-md ${selected ? 'border-blue-600 ring-2 ring-blue-200' : 'border-slate-200'}`}
+      className={`relative min-w-48 rounded-lg border bg-white dark:bg-[var(--surface)] shadow-sm ${selected ? 'border-blue-600 ring-2 ring-blue-200 dark:ring-blue-800' : 'border-slate-200 dark:border-slate-700'}`}
     >
       <Handle type="target" position={Position.Left} className="!h-3 !w-3 !bg-slate-500" />
       <div className={`rounded-t-lg px-3 py-2 text-xs font-bold ${item.color}`}>
         <span>{item.label}</span>
         <span className="float-right">{stateLabel}</span>
       </div>
-      <div className="px-3 py-3 text-xs text-slate-600">
+      <div className="px-3 py-3 text-xs text-slate-600 dark:text-slate-300">
         {data.config?.url || data.config?.event || item.description}
       </div>
       {data.nodeType === 'condition' ? (
@@ -55,7 +56,9 @@ function WorkflowNode({ data, selected }) {
             style={{ top: '35%' }}
             className="!h-3 !w-3 !bg-emerald-600"
           />
-          <span className="absolute -right-10 top-[28%] text-[10px] text-emerald-700">true</span>
+          <span className="absolute -right-10 top-[28%] text-[10px] text-emerald-700 dark:text-emerald-300">
+            Sí
+          </span>
           <Handle
             id="false"
             type="source"
@@ -63,7 +66,9 @@ function WorkflowNode({ data, selected }) {
             style={{ top: '70%' }}
             className="!h-3 !w-3 !bg-red-600"
           />
-          <span className="absolute -right-10 top-[63%] text-[10px] text-red-700">false</span>
+          <span className="absolute -right-10 top-[63%] text-[10px] text-red-700 dark:text-red-300">
+            No
+          </span>
         </>
       ) : (
         <Handle
@@ -83,10 +88,10 @@ const inputFields = {
   http: [
     ['method', 'Método', 'select'],
     ['url', 'URL'],
-    ['timeoutMs', 'Timeout (ms)', 'number'],
+    ['timeoutMs', 'Tiempo límite (ms)', 'number'],
     ['retries', 'Reintentos', 'number'],
     ['auth', 'Autenticación', 'select'],
-    ['body', 'Body'],
+    ['body', 'Cuerpo de la solicitud'],
   ],
   condition: [
     ['field', 'Campo a evaluar'],
@@ -115,7 +120,7 @@ const inputFields = {
 function ConfigPanel({ node, agents, onChange, onDelete, onDuplicate }) {
   if (!node)
     return (
-      <aside className="w-72 shrink-0 border-l bg-white p-4 text-sm text-slate-500">
+      <aside className="w-full xl:w-72 shrink-0 border-t xl:border-t-0 xl:border-l bg-white dark:bg-[var(--surface)] p-4 text-sm text-slate-500 dark:text-slate-400">
         Selecciona un nodo para configurarlo.
       </aside>
     );
@@ -155,7 +160,7 @@ function ConfigPanel({ node, agents, onChange, onDelete, onDuplicate }) {
       ['exists', 'Existe'],
     ],
     channel: [
-      ['email', 'Email'],
+      ['email', 'Correo electrónico'],
       ['slack', 'Slack'],
       ['teams', 'Teams'],
       ['webhook', 'Webhook'],
@@ -166,25 +171,28 @@ function ConfigPanel({ node, agents, onChange, onDelete, onDuplicate }) {
       ? agents.find((agent) => agent.id === node.data.config?.agentId)
       : null;
   return (
-    <aside className="w-80 shrink-0 overflow-y-auto border-l bg-white p-4">
+    <aside className="w-full xl:w-80 shrink-0 overflow-y-auto border-t xl:border-t-0 xl:border-l bg-white dark:bg-[var(--surface)] p-4">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="font-semibold">{catalogByType(node.data.nodeType).label}</h3>
         <div className="flex gap-2">
-          <button className="text-sm text-blue-700" onClick={onDuplicate}>
+          <button className="text-sm text-blue-700 dark:text-blue-300" onClick={onDuplicate}>
             Duplicar
           </button>
-          <button className="text-sm text-red-700" onClick={onDelete}>
+          <button className="text-sm text-red-700 dark:text-red-300" onClick={onDelete}>
             Eliminar
           </button>
         </div>
       </div>
       <div className="space-y-3">
         {fields.map(([key, label, kind]) => (
-          <label key={key} className="block text-xs font-semibold text-slate-700">
+          <label
+            key={key}
+            className="block text-xs font-semibold text-slate-700 dark:text-slate-200"
+          >
             {label}
             {kind === 'agentSelect' ? (
               <select
-                className="mt-1 w-full rounded border p-2 text-sm font-normal"
+                className="control mt-1 font-normal"
                 value={node.data.config?.[key] ?? ''}
                 onChange={(e) => update(key, e.target.value)}
               >
@@ -197,7 +205,7 @@ function ConfigPanel({ node, agents, onChange, onDelete, onDuplicate }) {
               </select>
             ) : kind === 'select' ? (
               <select
-                className="mt-1 w-full rounded border p-2 text-sm font-normal"
+                className="control mt-1 font-normal"
                 value={node.data.config?.[key] ?? ''}
                 onChange={(e) => update(key, e.target.value)}
               >
@@ -209,7 +217,7 @@ function ConfigPanel({ node, agents, onChange, onDelete, onDuplicate }) {
               </select>
             ) : (
               <input
-                className="mt-1 w-full rounded border p-2 text-sm font-normal"
+                className="control mt-1 font-normal"
                 type={kind || 'text'}
                 value={node.data.config?.[key] ?? ''}
                 onChange={(e) =>
@@ -221,7 +229,7 @@ function ConfigPanel({ node, agents, onChange, onDelete, onDuplicate }) {
               <>
                 <select
                   aria-label={`Insertar variable en ${label}`}
-                  className="mt-1 w-full rounded border p-1 text-xs font-normal text-slate-500"
+                  className="mt-1 w-full rounded border p-1 text-xs font-normal text-slate-500 dark:text-slate-400"
                   value=""
                   onChange={(e) => {
                     if (e.target.value)
@@ -235,7 +243,7 @@ function ConfigPanel({ node, agents, onChange, onDelete, onDuplicate }) {
                     Nodo anterior: nombre
                   </option>
                 </select>
-                <small className="mt-1 block font-normal text-slate-400">
+                <small className="mt-1 block font-normal text-tertiary">
                   Puedes usar {'{{$input.email}}'} o {'{{$nodes.buscar.output.name}}'}
                 </small>
               </>
@@ -244,7 +252,7 @@ function ConfigPanel({ node, agents, onChange, onDelete, onDuplicate }) {
         ))}
       </div>
       {node.data.nodeType === 'agent' && selectedAgent && (
-        <div className="mt-4 rounded bg-fuchsia-50 p-3 text-xs text-slate-700">
+        <div className="mt-4 rounded bg-[var(--surface-muted)] p-3 text-xs text-slate-700 dark:text-slate-200">
           <p className="font-semibold">{selectedAgent.name}</p>
           <p className="mt-1">Modelo: {selectedAgent.model || 'predeterminado'}</p>
           <p>Máximo de pasos: {selectedAgent.maxStepsPerRun}</p>
@@ -252,7 +260,7 @@ function ConfigPanel({ node, agents, onChange, onDelete, onDuplicate }) {
           <p className="mt-2 whitespace-pre-wrap">{selectedAgent.systemInstructions}</p>
         </div>
       )}
-      <div className="mt-4 rounded bg-slate-50 p-2 text-xs text-slate-500">
+      <div className="mt-4 rounded bg-slate-50 dark:bg-[var(--surface-muted)] p-2 text-xs text-slate-500 dark:text-slate-400">
         La configuración base se administra en Agentes. Aquí solo puedes elegir el agente y añadir
         instrucciones para este nodo.
       </div>
@@ -271,6 +279,7 @@ export default function WorkflowEditor({
   onPublish,
   sending,
 }) {
+  const { theme } = useTheme();
   const initial = useMemo(() => definitionToDiagram(definition), [definition]);
   const [nodes, setNodes, onNodesChange] = useNodesState(initial.nodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initial.edges);
@@ -299,7 +308,12 @@ export default function WorkflowEditor({
           ...connection,
           type: 'smoothstep',
           animated: false,
-          label: connection.sourceHandle !== 'default' ? connection.sourceHandle : undefined,
+          label:
+            connection.sourceHandle === 'true'
+              ? 'Sí'
+              : connection.sourceHandle === 'false'
+                ? 'No'
+                : undefined,
         },
         edges,
       );
@@ -372,8 +386,8 @@ export default function WorkflowEditor({
   };
   const validate = () => onValidate(validateDiagram(nodes, edges));
   return (
-    <div className="overflow-hidden rounded-lg border bg-slate-50 shadow-sm">
-      <div className="flex items-center gap-2 border-b bg-white p-3">
+    <div className="overflow-hidden rounded-lg border bg-slate-50 dark:bg-[var(--surface-muted)] shadow-sm">
+      <div className="flex flex-wrap items-center gap-2 border-b bg-white dark:bg-[var(--surface)] p-3">
         <Button
           disabled={!editable || sending}
           onClick={() => onSave(diagramToDefinition(nodes, edges))}
@@ -394,29 +408,21 @@ export default function WorkflowEditor({
         >
           Rehacer
         </button>
-        <Button disabled={sending} className="bg-slate-700 hover:bg-slate-800" onClick={validate}>
+        <Button disabled={sending} variant="secondary" onClick={validate}>
           Validar workflow
         </Button>
-        <Button
-          disabled={!editable || sending}
-          className="bg-violet-700 hover:bg-violet-800"
-          onClick={onTest}
-        >
+        <Button disabled={!editable || sending} variant="secondary" onClick={onTest}>
           Probar workflow
         </Button>
-        <Button
-          disabled={!editable || sending}
-          className="bg-emerald-700 hover:bg-emerald-800"
-          onClick={onPublish}
-        >
+        <Button disabled={!editable || sending} variant="secondary" onClick={onPublish}>
           Publicar
         </Button>
       </div>
-      <div className="flex h-[680px]">
-        <aside className="w-56 shrink-0 overflow-y-auto border-r bg-white p-3">
+      <div className="flex min-h-[680px] flex-col xl:h-[680px] xl:flex-row">
+        <aside className="w-full xl:w-56 max-h-64 xl:max-h-none shrink-0 overflow-y-auto border-b xl:border-b-0 xl:border-r bg-white dark:bg-[var(--surface)] p-3">
           <h3 className="mb-2 font-semibold">Paleta de nodos</h3>
           <Input
-            label=""
+            label="Buscar nodos"
             placeholder="Buscar..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -429,7 +435,7 @@ export default function WorkflowEditor({
                 event.dataTransfer.setData('application/workflow-node', item.type)
               }
               onClick={() => editable && add(item.type)}
-              className="mt-2 w-full rounded-lg border bg-white p-2 text-left hover:border-blue-500 disabled:opacity-50"
+              className="mt-2 w-full rounded-lg border bg-white dark:bg-[var(--surface)] p-2 text-left hover:border-blue-500 disabled:opacity-50"
               disabled={!editable}
             >
               <div
@@ -437,12 +443,12 @@ export default function WorkflowEditor({
               >
                 {item.label}
               </div>
-              <div className="text-xs text-slate-500">{item.description}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">{item.description}</div>
             </button>
           ))}
         </aside>
         <div
-          className="min-w-0 flex-1"
+          className="min-h-[440px] min-w-0 flex-1"
           onDrop={(event) => {
             event.preventDefault();
             const type = event.dataTransfer.getData('application/workflow-node');
@@ -451,6 +457,7 @@ export default function WorkflowEditor({
           onDragOver={(event) => event.preventDefault()}
         >
           <ReactFlow
+            colorMode={theme}
             nodes={nodes}
             edges={edges}
             nodeTypes={nodeTypes}
@@ -463,7 +470,7 @@ export default function WorkflowEditor({
             proOptions={{ hideAttribution: true }}
           >
             <Background gap={20} />
-            <Controls />
+            <Controls aria-label="Controles del diagrama" />
             <MiniMap />
           </ReactFlow>
         </div>

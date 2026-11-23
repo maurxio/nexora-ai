@@ -1,8 +1,10 @@
+import { EmptyState, PageHeader } from './components/Ui.jsx';
 import Protected from './auth/ProtectedRoute.jsx';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
 import './index.css';
+import { ThemeProvider } from './theme/ThemeContext.jsx';
 import { SessionProvider } from './auth/SessionContext.jsx';
 import Layout from './components/Layout.jsx';
 import { Login, Register } from './pages/AuthPages.jsx';
@@ -37,8 +39,8 @@ class ErrorBoundary extends React.Component {
       return (
         <main className="mx-auto max-w-xl p-8 text-center">
           <h1 className="text-2xl font-bold">Ocurrió un error inesperado</h1>
-          <p className="mt-3 text-slate-600">{this.state.error.message}</p>
-          <a className="mt-4 inline-block text-blue-700 underline" href="/orgs">
+          <p className="mt-3 text-slate-600 dark:text-slate-300">{this.state.error.message}</p>
+          <a className="mt-4 inline-block text-blue-700 dark:text-blue-300 underline" href="/orgs">
             Ir a organizaciones
           </a>
         </main>
@@ -83,20 +85,25 @@ function App() {
 
 function SettingsPage() {
   return (
-    <main className="surface rounded-lg p-6">
-      <h1 className="text-xl font-bold">Configuración</h1>
-      <p className="mt-2 text-sm text-slate-500">
-        La gestión de miembros y roles está disponible desde la API. Las claves de API, preferencias
-        avanzadas y sesiones requieren endpoints de backend aún no publicados.
-      </p>
-    </main>
+    <section>
+      <PageHeader
+        title="Configuración"
+        description="Preferencias y administración de tu organización."
+      />
+      <EmptyState
+        title="Configuración avanzada pendiente"
+        description="La administración de miembros, roles y preferencias estará disponible en esta sección."
+      />
+    </section>
   );
 }
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ThemeProvider>
   </React.StrictMode>,
 );
