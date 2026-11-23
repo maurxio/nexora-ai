@@ -18,7 +18,7 @@ jobs:
     outputs:
       sha: ${{ steps.check.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.workflow_run.head_sha || github.ref }}
           fetch-depth: 0
@@ -53,7 +53,7 @@ jobs:
       matrix:
         target: [api, workflow-worker, notification-worker, document-worker, frontend]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { ref: '${{ needs.gate.outputs.sha }}' }
       - id: prefix
         run: echo "value=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
