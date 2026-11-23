@@ -1,4 +1,4 @@
-FROM node:24-alpine AS dependencies
+FROM node:26-alpine AS dependencies
 RUN apk upgrade --no-cache && apk add --no-cache openssl ca-certificates
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -13,7 +13,7 @@ RUN npm ci --omit=dev --ignore-scripts --include-workspace-root --workspace apps
 COPY apps/api/prisma apps/api/prisma
 RUN npm run db:generate
 
-FROM node:24-alpine AS runtime
+FROM node:26-alpine AS runtime
 RUN apk upgrade --no-cache && apk add --no-cache openssl ca-certificates
 WORKDIR /app
 ENV NODE_ENV=production
